@@ -5,7 +5,6 @@
 #include "processor.h"
 #include "unittest.h"
 #include "util.h"
-#include <sstream>
 #include <stdio.h>
 #include <time.h>
 
@@ -731,7 +730,11 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  opt.validate();
+  if (!opt.validate()) {
+    std::cerr
+        << "Error in parameters. Keep in mind that some parameters are invalid."
+        << std::endl;
+  }
 
   // using evaluator to guess how many reads in total
   if (opt.split.needEvaluation && supportEvaluation) {

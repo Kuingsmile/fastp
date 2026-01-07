@@ -25,7 +25,6 @@ SOFTWARE.
 #ifndef FASTQ_READER_H
 #define FASTQ_READER_H
 
-#include "common.h"
 #include "igzip_lib.h"
 #include "read.h"
 #include "readpool.h"

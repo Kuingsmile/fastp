@@ -55,14 +55,15 @@ void Options::loadFastaAdapters() {
   FastaReader reader(adapter.fastaFile);
   reader.readAll();
 
-  std::map<std::string, std::string> contigs = reader.contigs();
-  std::map<std::string, std::string>::iterator iter;
-  for (iter = contigs.begin(); iter != contigs.end(); iter++) {
-    if (iter->second.length() >= 6) {
-      adapter.seqsInFasta.push_back(iter->second);
+  auto &all_contigs = reader.contigs();
+  adapter.seqsInFasta.reserve(adapter.seqsInFasta.size() + all_contigs.size());
+
+  for (const auto &[id, seq] : all_contigs) {
+    if (seq.length() >= 6) {
+      adapter.seqsInFasta.push_back(seq);
     } else {
-      cerr << "skip too short adapter sequence in " << adapter.fastaFile
-           << " (6bp required): " << iter->second << endl;
+      std::cerr << "skip too short adapter sequence in " << adapter.fastaFile
+                << " (6bp required): " << seq << std::endl;
     }
   }
 
@@ -93,11 +94,13 @@ bool Options::validate() {
 
   if (outputToSTDOUT) {
     if (!out1.empty()) {
-      cerr << "In STDOUT mode, ignore the out1 filename " << out1 << endl;
+      std::cerr << "In STDOUT mode, ignore the out1 filename " << out1
+                << std::endl;
       out1 = "";
     }
     if (!out2.empty()) {
-      cerr << "In STDOUT mode, ignore the out2 filename " << out2 << endl;
+      std::cerr << "In STDOUT mode, ignore the out2 filename " << out2
+                << std::endl;
       out2 = "";
     }
   }
@@ -113,37 +116,42 @@ bool Options::validate() {
     if (!correction.enabled)
       correction.enabled = true;
     if (merge.out.empty() && !outputToSTDOUT && !out1.empty() && out2.empty()) {
-      cerr << "You specified --out1, but haven't specified --merged_out in "
-              "merging mode. Using --out1 to store the merged reads to be "
-              "compatible with fastp 0.19.8"
-           << endl
-           << endl;
+      std::cerr
+          << "You specified --out1, but haven't specified --merged_out in "
+             "merging mode. Using --out1 to store the merged reads to be "
+             "compatible with fastp 0.19.8"
+          << std::endl
+          << std::endl;
       merge.out = out1;
       out1 = "";
     }
     if (merge.includeUnmerged) {
       if (!out1.empty()) {
-        cerr << "You specified --include_unmerged in merging mode. Ignoring "
-                "argument --out1 = "
-             << out1 << endl;
+        std::cerr
+            << "You specified --include_unmerged in merging mode. Ignoring "
+               "argument --out1 = "
+            << out1 << std::endl;
         out1 = "";
       }
       if (!out2.empty()) {
-        cerr << "You specified --include_unmerged in merging mode. Ignoring "
-                "argument --out2 = "
-             << out2 << endl;
+        std::cerr
+            << "You specified --include_unmerged in merging mode. Ignoring "
+               "argument --out2 = "
+            << out2 << std::endl;
         out2 = "";
       }
       if (!unpaired1.empty()) {
-        cerr << "You specified --include_unmerged in merging mode. Ignoring "
-                "argument --unpaired1 = "
-             << unpaired1 << endl;
+        std::cerr
+            << "You specified --include_unmerged in merging mode. Ignoring "
+               "argument --unpaired1 = "
+            << unpaired1 << std::endl;
         unpaired1 = "";
       }
       if (!unpaired2.empty()) {
-        cerr << "You specified --include_unmerged in merging mode. Ignoring "
-                "argument --unpaired1 = "
-             << unpaired2 << endl;
+        std::cerr
+            << "You specified --include_unmerged in merging mode. Ignoring "
+               "argument --unpaired1 = "
+            << unpaired2 << std::endl;
         unpaired2 = "";
       }
     }
@@ -166,9 +174,9 @@ bool Options::validate() {
   } else {
     // not in merging mode
     if (!merge.out.empty()) {
-      cerr << "You haven't enabled merging mode (-m/--merge), ignoring "
-              "argument --merged_out = "
-           << merge.out << endl;
+      std::cerr << "You haven't enabled merging mode (-m/--merge), ignoring "
+                   "argument --merged_out = "
+                << merge.out << std::endl;
       merge.out = "";
     }
   }
@@ -178,15 +186,16 @@ bool Options::validate() {
     if (split.enabled) {
       error_exit("splitting mode cannot work with stdout mode");
     }
-    cerr << "Streaming uncompressed ";
+    std::cerr << "Streaming uncompressed ";
     if (merge.enabled)
-      cerr << "merged";
+      std::cerr << "merged";
     else if (isPaired())
-      cerr << "interleaved";
-    cerr << " reads to STDOUT..." << endl;
+      std::cerr << "interleaved";
+    std::cerr << " reads to STDOUT..." << std::endl;
     if (isPaired() && !merge.enabled)
-      cerr << "Enable interleaved output mode for paired-end input." << endl;
-    cerr << endl;
+      std::cerr << "Enable interleaved output mode for paired-end input."
+                << std::endl;
+    std::cerr << std::endl;
   }
 
   if (in2.empty() && !interleavedInput && !out2.empty()) {
@@ -238,32 +247,34 @@ bool Options::validate() {
   }
   if (!isPaired()) {
     if (!unpaired1.empty()) {
-      cerr << "Not paired-end mode. Ignoring argument --unpaired1 = "
-           << unpaired1 << endl;
+      std::cerr << "Not paired-end mode. Ignoring argument --unpaired1 = "
+                << unpaired1 << std::endl;
       unpaired1 = "";
     }
     if (!unpaired2.empty()) {
-      cerr << "Not paired-end mode. Ignoring argument --unpaired2 = "
-           << unpaired2 << endl;
+      std::cerr << "Not paired-end mode. Ignoring argument --unpaired2 = "
+                << unpaired2 << std::endl;
       unpaired2 = "";
     }
     if (!overlappedOut.empty()) {
-      cerr << "Not paired-end mode. Ignoring argument --overlapped_out = "
-           << overlappedOut << endl;
+      std::cerr << "Not paired-end mode. Ignoring argument --overlapped_out = "
+                << overlappedOut << std::endl;
       overlappedOut = "";
     }
   }
   if (split.enabled) {
     if (!unpaired1.empty()) {
-      cerr << "Outputing unpaired reads is not supported in splitting mode. "
-              "Ignoring argument --unpaired1 = "
-           << unpaired1 << endl;
+      std::cerr
+          << "Outputing unpaired reads is not supported in splitting mode. "
+             "Ignoring argument --unpaired1 = "
+          << unpaired1 << std::endl;
       unpaired1 = "";
     }
     if (!unpaired2.empty()) {
-      cerr << "Outputing unpaired reads is not supported in splitting mode. "
-              "Ignoring argument --unpaired2 = "
-           << unpaired2 << endl;
+      std::cerr
+          << "Outputing unpaired reads is not supported in splitting mode. "
+             "Ignoring argument --unpaired2 = "
+          << unpaired2 << std::endl;
       unpaired2 = "";
     }
   }
@@ -326,8 +337,8 @@ bool Options::validate() {
   if (thread < 1) {
     thread = 1;
   } else if (thread > 64) {
-    cerr << "WARNING: fastp uses up to 64 threads although you specified "
-         << thread << endl;
+    std::cerr << "WARNING: fastp uses up to 64 threads although you specified "
+              << thread << std::endl;
     thread = 64;
   }
 
@@ -460,9 +471,10 @@ bool Options::validate() {
   }
 
   if (correction.enabled && !isPaired()) {
-    cerr << "WARNING: base correction is only appliable for paired end data, "
-            "ignoring -c/--correction"
-         << endl;
+    std::cerr
+        << "WARNING: base correction is only appliable for paired end data, "
+           "ignoring -c/--correction"
+        << std::endl;
     correction.enabled = false;
   }
 

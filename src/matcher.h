@@ -7,16 +7,15 @@
 
 using namespace std;
 
-class Matcher{
+class Matcher {
 public:
-    Matcher();
-    ~Matcher();
+  Matcher();
+  ~Matcher();
 
-    static bool matchWithOneInsertion(const char* insData, const char* normalData, int cmplen, int diffLimit);
-    static int diffWithOneInsertion(const char* insData, const char* normalData, int cmplen, int diffLimit);
-
-
+  static bool matchWithOneInsertion(const char *insData, const char *normalData,
+                                    int cmplen, int diffLimit);
+  static int diffWithOneInsertion(const char *insData, const char *normalData,
+                                  int cmplen, int diffLimit);
 };
-
 
 #endif

@@ -2,7 +2,6 @@
 #define ADAPTER_TRIMMER_H
 
 #include "filterresult.h"
-#include "options.h"
 #include "overlapanalysis.h"
 #include <stdio.h>
 #include <stdlib.h>

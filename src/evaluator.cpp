@@ -2,6 +2,7 @@
 #include "fastqreader.h"
 #include "knownadapters.h"
 #include "nucleotidetree.h"
+#include "util.h"
 #include <map>
 #include <memory.h>
 

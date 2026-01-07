@@ -3,39 +3,44 @@
 
 // includes
 #include <cctype>
-#include <clocale>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <map>
 #include <stdexcept>
 #include <string>
-
-using namespace std;
+#include <string_view>
 
 class FastaReader {
 public:
-  FastaReader(string fastaFile, bool forceUpperCase = true);
+  FastaReader(std::string fastaFile, bool forceUpperCase = true);
   ~FastaReader();
-  bool hasNext();
+  [[nodiscard]] bool hasNext();
   void readNext();
   void readAll();
 
-  inline string currentID() { return mCurrentID; }
+  [[nodiscard]] inline const std::string &currentID() const noexcept {
+    return mCurrentID;
+  }
 
-  inline string currentDescription() { return mCurrentDescription; }
+  [[nodiscard]] inline const std::string &currentDescription() const noexcept {
+    return mCurrentDescription;
+  }
 
-  inline string currentSequence() { return mCurrentSequence; }
+  [[nodiscard]] inline const std::string &currentSequence() const noexcept {
+    return mCurrentSequence;
+  }
 
-  inline map<string, string> &contigs() { return mAllContigs; }
+  [[nodiscard]] inline std::map<std::string, std::string> &contigs() noexcept {
+    return mAllContigs;
+  }
 
   static bool test();
 
 public:
-  string mCurrentSequence;
-  string mCurrentID;
-  string mCurrentDescription;
-  map<string, string> mAllContigs;
+  std::string mCurrentSequence{};
+  std::string mCurrentID{};
+  std::string mCurrentDescription{};
+  std::map<std::string, std::string> mAllContigs{};
 
 private:
   bool readLine();
@@ -43,9 +48,16 @@ private:
   void setFastaSequenceIdDescription();
 
 private:
-  string mFastaFile;
-  ifstream mFastaFileStream;
-  bool mForceUpperCase;
+  std::string mFastaFile{};
+  std::ifstream mFastaFileStream{};
+  bool mForceUpperCase{};
+
+  int mFd{-1};
+  char *mMappedData{nullptr};
+  size_t mFileSize{0};
+  char *mCurrentPtr{nullptr};
+
+  const char *mActiveTable;
 };
 
 #endif

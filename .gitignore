@@ -3,6 +3,8 @@ fastp
 .cache
 # Prerequisites
 *.d
+/test
+*.fasta
 
 # Compiled Object files
 *.slo

@@ -11,6 +11,35 @@
 #include <string_view>
 #include <vector>
 
+struct TableGenerator {
+  using Table = std::array<char, 256>;
+
+  static constexpr Table makeFilterTable(bool forceUpper) {
+    Table table{};
+
+    const char *valid =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-*";
+
+    for (int i = 0; i < 54; ++i) { // 字符集长度为 54
+      unsigned char c = static_cast<unsigned char>(valid[i]);
+      if (forceUpper) {
+        if (c >= 'a' && c <= 'z')
+          table[c] = static_cast<char>(c - 32);
+        else
+          table[c] = static_cast<char>(c);
+      } else {
+        table[c] = static_cast<char>(c);
+      }
+    }
+    return table;
+  }
+};
+
+inline constexpr std::array<char, 256> FilterTable =
+    TableGenerator::makeFilterTable(false);
+inline constexpr std::array<char, 256> UpperTable =
+    TableGenerator::makeFilterTable(true);
+
 [[nodiscard]] constexpr char complement(char base) {
   switch (base) {
   case 'A':
