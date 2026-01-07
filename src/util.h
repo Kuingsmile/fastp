@@ -1,284 +1,250 @@
 #ifndef UTIL_H
 #define UTIL_H
 
-#include <stdlib.h>
-#include <string>
-#include <iostream>
-#include <vector>
-#include <sys/stat.h>
 #include <algorithm>
-#include <time.h>
+#include <chrono>
+#include <filesystem>
+#include <iostream>
 #include <mutex>
 #include <regex>
+#include <string>
+#include <string_view>
+#include <vector>
 
-using namespace std;
-
-inline char complement(char base) {
-    switch(base){
-        case 'A':
-        case 'a':
-            return 'T';
-        case 'T':
-        case 't':
-            return 'A';
-        case 'C':
-        case 'c':
-            return 'G';
-        case 'G':
-        case 'g':
-            return 'C';
-        default:
-            return 'N';
-    }
+[[nodiscard]] constexpr char complement(char base) {
+  switch (base) {
+  case 'A':
+  case 'a':
+    return 'T';
+  case 'T':
+  case 't':
+    return 'A';
+  case 'C':
+  case 'c':
+    return 'G';
+  case 'G':
+  case 'g':
+    return 'C';
+  default:
+    return 'N';
+  }
 }
 
-inline bool starts_with( string const & value,  string const & starting)
-{
-    if (starting.size() > value.size()) return false;
-    return  equal(starting.begin(), starting.end(), value.begin());
+[[nodiscard]] inline bool starts_with(std::string_view value,
+                                      std::string_view starting) {
+  return value.size() >= starting.size() &&
+         value.compare(0, starting.size(), starting) == 0;
 }
 
-inline bool starts_with( string* value,  string const & starting)
-{
-    return starts_with(*value, starting);
+[[nodiscard]] inline bool starts_with(const std::string *value,
+                                      std::string_view starting) {
+  if (value == nullptr)
+    return false;
+  return starts_with(std::string_view(*value), starting);
 }
 
-inline bool ends_with( string const & value,  string const & ending)
-{
-	if (ending.size() > value.size()) return false;
-	return  equal(ending.rbegin(), ending.rend(), value.rbegin());
+[[nodiscard]] inline bool ends_with(std::string_view value,
+                                    std::string_view ending) {
+  return value.size() >= ending.size() &&
+         value.compare(value.size() - ending.size(), ending.size(), ending) ==
+             0;
 }
 
-inline string trim(const string& str)
-{
-    string::size_type pos = str.find_first_not_of(' ');
-    if (pos == string::npos)
-    {
-        return string("");
-    }
-    string::size_type pos2 = str.find_last_not_of(' ');
-    if (pos2 != string::npos)
-    {
-        return str.substr(pos, pos2 - pos + 1);
-    }
-    return str.substr(pos);
+[[nodiscard]] inline std::string_view trim(std::string_view str) {
+  const auto pos = str.find_first_not_of(' ');
+  if (pos == std::string_view::npos)
+    return "";
+  const auto pos2 = str.find_last_not_of(' ');
+  return str.substr(pos, pos2 - pos + 1);
 }
 
-inline int split(const string& str, vector<string>& ret_, string sep = ",")
-{
-    if (str.empty())
-    {
-        return 0;
+inline void split(const std::string &str, std::vector<std::string> &ret,
+                  std::string_view sep = ",") {
+  ret.clear();
+  size_t start = str.find_first_not_of(sep);
+  while (start != std::string::npos) {
+    size_t end = str.find(sep, start);
+    if (end == std::string::npos) {
+      ret.emplace_back(str.substr(start));
+      break;
     }
+    ret.emplace_back(str.substr(start, end - start));
+    start = str.find_first_not_of(sep, end);
+  }
+}
+[[nodiscard]] inline std::string
+replace(std::string_view str, std::string_view src, std::string_view dest) {
+  if (src.empty())
+    return std::string(str);
 
-    string tmp;
-    string::size_type pos_begin = str.find_first_not_of(sep);
-    string::size_type comma_pos = 0;
+  std::string result;
+  size_t count = 0;
+  size_t pos = str.find(src);
+  while (pos != std::string_view::npos) {
+    count++;
+    pos = str.find(src, pos + src.size());
+  }
 
-    while (pos_begin != string::npos)
-    {
-        comma_pos = str.find(sep, pos_begin);
-        if (comma_pos != string::npos)
-        {
-            tmp = str.substr(pos_begin, comma_pos - pos_begin);
-            pos_begin = comma_pos + sep.length();
-        }
-        else
-        {
-            tmp = str.substr(pos_begin);
-            pos_begin = comma_pos;
-        }
+  if (count == 0)
+    return std::string(str);
 
-        ret_.push_back(tmp);
-        tmp.clear();
-    }
-    return 0;
+  size_t new_size = str.size() + count * (dest.size() - src.size());
+  result.reserve(new_size);
+
+  size_t last_pos = 0;
+  pos = str.find(src);
+  while (pos != std::string_view::npos) {
+    result.append(str.data() + last_pos, pos - last_pos);
+    result.append(dest);
+
+    last_pos = pos + src.size();
+    pos = str.find(src, last_pos);
+  }
+
+  result.append(str.data() + last_pos, str.size() - last_pos);
+  return result;
 }
 
-inline string replace(const string& str, const string& src, const string& dest)
-{
-    string ret;
-
-    string::size_type pos_begin = 0;
-    string::size_type pos       = str.find(src);
-    while (pos != string::npos)
-    {
-        ret.append(str.data() + pos_begin, pos - pos_begin);
-        ret += dest;
-        pos_begin = pos + 1;
-        pos       = str.find(src, pos_begin);
-    }
-    if (pos_begin < str.length())
-    {
-        ret.append(str.begin() + pos_begin, str.end());
-    }
-    return ret;
+[[nodiscard]] inline std::string reverse(std::string_view str) {
+  return std::string(str.rbegin(), str.rend());
 }
 
-inline string reverse(const string& str) {
-    string ret(str.length(), 0);
-    for(int pos=0; pos<str.length(); pos++) {
-        ret[pos] = str[str.length() - pos - 1];
-    }
-    return ret;
+inline void str2upper(std::string &s) {
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
 }
 
-inline string basename(const string& filename){
-    string::size_type pos = filename.find_last_of('/');
-    if (pos == string::npos)
-        return filename;
-    else if(pos == filename.length()-1)
-        return ""; // a bad filename
-    else
-        return filename.substr(pos+1, filename.length() - pos - 1);
-}
-
-inline string dirname(const string& filename){
-    string::size_type pos = filename.find_last_of('/');
-    if (pos == string::npos) {
-        return "./";
-    } else
-        return filename.substr(0, pos+1);
-}
-
-inline string joinpath(const string& dirname, const string& basename){
-    if(dirname[dirname.length()-1] == '/'){
-        return dirname + basename;
-    } else {
-        return dirname + "/" + basename;
-    }
-}
-
-//Check if a string is a file or directory
-inline bool file_exists(const  string& s)
-{
-    bool exists = false;
-    if(s.length() > 0) {
-        struct stat status;
-        int result = stat( s.c_str(), &status );
-        if(result == 0) {
-            exists = true;
-        }
-    }
-    return exists;
-}
-
-
-// check if a string is a directory
-inline bool is_directory(const  string& path)
-{
-    bool isdir = false;
-    struct stat status;
-    // visual studion use _S_IFDIR instead of S_IFDIR
-    // http://msdn.microsoft.com/en-us/library/14h5k7ff.aspx
-#ifdef _MSC_VER
-#define S_IFDIR _S_IFDIR
-#endif
-    stat( path.c_str(), &status );
-    if ( status.st_mode &  S_IFDIR  ) {
-        isdir = true;
-    }
-// #endif
-    return isdir;
-}
-
-inline void check_file_valid(const  string& s) {
-    if(!file_exists(s)){
-        cerr << "ERROR: file '" << s << "' doesn't exist, quit now" << endl;
-        exit(-1);
-    }
-    if(is_directory(s)){
-        cerr << "ERROR: '" << s << "' is a folder, not a file, quit now" << endl;
-        exit(-1);
-    }
-}
-
-inline bool check_filename_valid(const string& s){
-    return 0 < trim(s).length() && trim(s).length() <= 255 && regex_match(s, regex("^[A-Za-z0-9_\\.\\-]+$"));
-}
-
-inline void check_file_writable(const  string& s) {
-    string dir = dirname(s);
-    if(!file_exists(dir)) {
-        cerr << "ERROR: '" << dir << " doesn't exist. Create this folder and run this command again." << endl;
-        exit(-1);
-    }
-    if(is_directory(s)){
-        cerr << "ERROR: '" << s << "' is not a writable file, quit now" << endl;
-        exit(-1);
-    }
+inline void str2lower(std::string &s) {
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
 }
 
 // Remove non alphabetic characters from a string
-inline  string str_keep_alpha(const  string& s)
-{
-     string new_str;
-    for( size_t it =0; it < s.size(); it++) {
-        if(  isalpha(s[it]) ) {
-            new_str += s[it];
-        }
+inline std::string str_keep_alpha(const std::string &s) {
+  std::string new_str;
+  for (size_t it = 0; it < s.size(); it++) {
+    if (isalpha(s[it])) {
+      new_str += s[it];
     }
-    return new_str;
+  }
+  return new_str;
 }
-
 
 // Remove invalid sequence characters from a string
-inline void str_keep_valid_sequence(  string& s, bool forceUpperCase = false)
-{
-    size_t total = 0;
-    const char case_gap = 'a' - 'A';
-    for( size_t it =0; it < s.size(); it++) {
-        char c = s[it];
-        if(forceUpperCase && c>='a' && c<='z') {
-            c -= case_gap;
-        }
-        if(  isalpha(c) || c == '-' || c == '*' ) {
-            s[total] = c;
-            total ++;
-        }
+inline void str_keep_valid_sequence(std::string &s,
+                                    bool forceUpperCase = false) {
+  size_t total = 0;
+  const char case_gap = 'a' - 'A';
+  for (size_t it = 0; it < s.size(); it++) {
+    char c = s[it];
+    if (forceUpperCase && c >= 'a' && c <= 'z') {
+      c -= case_gap;
     }
+    if (isalpha(c) || c == '-' || c == '*') {
+      s[total] = c;
+      total++;
+    }
+  }
 
-    s.resize(total);
+  s.resize(total);
 }
 
-inline int find_with_right_pos(const string& str, const string& pattern, int start=0) {
-    int pos = str.find(pattern, start);
-    if (pos < 0)
-        return -1;
-    else
-        return pos + pattern.length();
-}
-
-inline void str2upper(string& s){
-    transform(s.begin(), s.end(), s.begin(), (int (*)(int))toupper);
-}
-
-inline void str2lower(string& s){
-    transform(s.begin(), s.end(), s.begin(), (int (*)(int))tolower);
+inline int find_with_right_pos(std::string_view str, std::string_view pattern,
+                               size_t start = 0) {
+  if (auto pos = str.find(pattern, start); pos != std::string_view::npos)
+    return static_cast<int>(pos + pattern.length());
+  return -1;
 }
 
 inline char num2qual(int num) {
-    if(num > 127 - 33)
-        num = 127 - 33;
-    if(num < 0)
-        num = 0;
+  if (num > 127 - 33)
+    num = 127 - 33;
+  if (num < 0)
+    num = 0;
 
-    char c = num + 33;
-    return c;
+  char c = num + 33;
+  return c;
 }
 
-inline void error_exit(const string& msg) {
-    cerr << "ERROR: " << msg << endl;
+// --- 文件系统操作 (std::filesystem) ---
+[[nodiscard]] inline std::string basename(const std::string &filename) {
+  return std::filesystem::path(filename).filename().string();
+}
+
+[[nodiscard]] inline std::string dirname(const std::string &filename) {
+  auto p = std::filesystem::path(filename).parent_path();
+  return p.empty() ? "./" : p.string() + "/";
+}
+
+[[nodiscard]] inline std::string joinpath(const std::string &dir,
+                                          const std::string &base) {
+  return (std::filesystem::path(dir) / base).string();
+}
+
+// Check if a string is a file or directory
+[[nodiscard]] inline bool file_exists(const std::string &s) {
+  return std::filesystem::exists(s);
+}
+
+// check if a string is a directory
+[[nodiscard]] inline bool is_directory(const std::string &path) {
+  return std::filesystem::is_directory(path);
+}
+
+inline void check_file_valid(const std::string &s) {
+  if (!file_exists(s)) {
+    std::cerr << "ERROR: file '" << s << "' doesn't exist, quit now"
+              << std::endl;
     exit(-1);
+  }
+  if (is_directory(s)) {
+    std::cerr << "ERROR: '" << s << "' is a folder, not a file, quit now"
+              << std::endl;
+    exit(-1);
+  }
 }
 
-extern mutex logmtx;
-inline void loginfo(const string s){
-    logmtx.lock();
-    time_t tt = time(NULL);
-    tm* t= localtime(&tt);
-    fprintf(stderr, "[%02d:%02d:%02d] %s \n", t->tm_hour, t->tm_min, t->tm_sec, s.c_str());
-    logmtx.unlock();
+inline bool check_filename_valid(const std::string &s) {
+  std::string_view t = trim(s);
+  return !t.empty() && t.length() <= 255 &&
+         std::regex_match(s, std::regex("^[A-Za-z0-9_\\.\\-]+$"));
+}
+
+inline void check_file_writable(const std::string &s) {
+  std::string dir = dirname(s);
+  if (!file_exists(dir)) {
+    std::cerr
+        << "ERROR: '" << dir
+        << " doesn't exist. Create this folder and run this command again."
+        << std::endl;
+    exit(-1);
+  }
+  if (is_directory(s)) {
+    std::cerr << "ERROR: '" << s << "' is not a writable file, quit now"
+              << std::endl;
+    exit(-1);
+  }
+}
+
+// --- 系统与日志 ---
+inline void error_exit(const std::string &msg) {
+  std::cerr << "ERROR: " << msg << std::endl;
+  exit(-1);
+}
+
+extern std::mutex logmtx;
+inline void loginfo(std::string_view s) {
+  std::lock_guard<std::mutex> lock(logmtx);
+  auto now =
+      std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  std::tm t;
+#ifdef _MSC_VER
+  localtime_s(&t, &now);
+#else
+  localtime_r(&now, &t);
+#endif
+  std::fprintf(stderr, "[%02d:%02d:%02d] %.*s \n", t.tm_hour, t.tm_min,
+               t.tm_sec, static_cast<int>(s.size()), s.data());
 }
 
 #endif /* UTIL_H */

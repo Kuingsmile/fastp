@@ -142,7 +142,7 @@ void Read::appendToString(string* target) {
 	delete[] str;
 }
 
-void Read::appendToStringWithTag(string* target, string tag) {
+void Read::appendToStringWithTag(string* target, std::string_view tag) {
 	size_t size = mName->length() + 1 + tag.length() + mSeq->length() + mStrand->length() + mQuality->length() + 4;
 	char* str = new char[size + 1];
 	size_t total = 0;
