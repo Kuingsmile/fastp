@@ -1,10 +1,6 @@
 #include "adaptertrimmer.h"
 #include "matcher.h"
 
-AdapterTrimmer::AdapterTrimmer() {}
-
-AdapterTrimmer::~AdapterTrimmer() {}
-
 bool AdapterTrimmer::trimByOverlapAnalysis(Read *r1, Read *r2, FilterResult *fr,
                                            int diffLimit, int overlapRequire,
                                            double diffPercentLimit) {
@@ -25,21 +21,21 @@ bool AdapterTrimmer::trimByOverlapAnalysis(Read *r1, Read *r2, FilterResult *fr,
     // -----|-------------------------------------------|......frontTrimmed2.....
     // 5'
 
-    int len1 = min(r1->length(), ol + frontTrimmed2);
-    int len2 = min(r2->length(), ol + frontTrimmed1);
-    string adapter1 = r1->mSeq.substr(len1, r1->length() - len1);
-    string adapter2 = r2->mSeq.substr(len2, r2->length() - len2);
+    int len1 = std::min(r1->length(), ol + frontTrimmed2);
+    int len2 = std::min(r2->length(), ol + frontTrimmed1);
+    std::string adapter1 = r1->mSeq.substr(len1, r1->length() - len1);
+    std::string adapter2 = r2->mSeq.substr(len2, r2->length() - len2);
 
     if (DEBUG_MODE) {
-      cerr << adapter1 << endl;
-      cerr << adapter2 << endl;
-      cerr << "frontTrimmed2: " << frontTrimmed1 << endl;
-      cerr << "frontTrimmed2: " << frontTrimmed2 << endl;
-      cerr << "overlap:" << ov.offset << "," << ov.overlap_len << ", "
-           << ov.diff << endl;
+      std::cerr << adapter1 << std::endl;
+      std::cerr << adapter2 << std::endl;
+      std::cerr << "frontTrimmed2: " << frontTrimmed1 << std::endl;
+      std::cerr << "frontTrimmed2: " << frontTrimmed2 << std::endl;
+      std::cerr << "overlap:" << ov.offset << "," << ov.overlap_len << ", "
+                << ov.diff << std::endl;
       r1->print();
       r2->reverseComplement()->print();
-      cerr << endl;
+      std::cerr << std::endl;
     }
     r1->resize(len1);
     r2->resize(len2);
@@ -51,7 +47,7 @@ bool AdapterTrimmer::trimByOverlapAnalysis(Read *r1, Read *r2, FilterResult *fr,
 }
 
 bool AdapterTrimmer::trimByMultiSequences(Read *r, FilterResult *fr,
-                                          vector<string> &adapterList,
+                                          std::vector<std::string> &adapterList,
                                           bool isR2, bool incTrimmedCounter) {
   int matchReq = 4;
   if (adapterList.size() > 16)
@@ -71,14 +67,14 @@ bool AdapterTrimmer::trimByMultiSequences(Read *r, FilterResult *fr,
     if (fr)
       fr->addAdapterTrimmed(adapter, isR2, incTrimmedCounter);
     else
-      cerr << adapter << endl;
+      std::cerr << adapter << std::endl;
   }
 
   return trimmed;
 }
 
 bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
-                                    string &adapterseq, bool isR2,
+                                    std::string &adapterseq, bool isR2,
                                     int matchReq) {
   const int allowOneMismatchForEach = 8;
 
@@ -104,11 +100,11 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
   // have the first A skipped as A-tailing try exact match with hamming distance
   // (no insertion of deletion)
   for (pos = start; pos < rlen - matchReq; pos++) {
-    int cmplen = min(rlen - pos, alen);
+    int cmplen = std::min(rlen - pos, alen);
     int allowedMismatch = cmplen / allowOneMismatchForEach;
     int mismatch = 0;
     bool matched = true;
-    for (int i = max(0, -pos); i < cmplen; i++) {
+    for (int i = std::max(0, -pos); i < cmplen; i++) {
       if (adata[i] != rdata[i + pos]) {
         mismatch++;
         if (mismatch > allowedMismatch) {
@@ -129,7 +125,7 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
   bool hasInsertion = false;
   if (!found) {
     for (pos = 0; pos < rlen - matchReq - 1; pos++) {
-      int cmplen = min(rlen - pos - 1, alen);
+      int cmplen = std::min(rlen - pos - 1, alen);
       int allowedMismatch = cmplen / allowOneMismatchForEach - 1;
       bool matched =
           Matcher::matchWithOneInsertion(rdata, adata, cmplen, allowedMismatch);
@@ -147,7 +143,7 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
   bool hasDeletion = false;
   if (!found) {
     for (pos = 0; pos < rlen - matchReq; pos++) {
-      int cmplen = min(rlen - pos, alen - 1);
+      int cmplen = std::min(rlen - pos, alen - 1);
       int allowedMismatch = cmplen / allowOneMismatchForEach - 1;
       bool matched =
           Matcher::matchWithOneInsertion(adata, rdata, cmplen, allowedMismatch);

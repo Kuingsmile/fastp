@@ -1,10 +1,6 @@
 #include "basecorrector.h"
 #include "util.h"
 
-BaseCorrector::BaseCorrector() {}
-
-BaseCorrector::~BaseCorrector() {}
-
 int BaseCorrector::correctByOverlapAnalysis(Read *r1, Read *r2,
                                             FilterResult *fr, int diffLimit,
                                             int overlapRequire,

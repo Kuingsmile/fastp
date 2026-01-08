@@ -11,8 +11,7 @@ using namespace std;
 
 class BaseCorrector {
 public:
-  BaseCorrector();
-  ~BaseCorrector();
+  BaseCorrector() = delete;
 
   static int correctByOverlapAnalysis(Read *r1, Read *r2, FilterResult *fr,
                                       int diffLimit, int overlapRequire,

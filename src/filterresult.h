@@ -21,41 +21,40 @@ struct classcomp {
       return false;
   }
 };
-
-using namespace std;
-
 class FilterResult {
 public:
   FilterResult(Options *opt, bool paired = false);
   ~FilterResult();
   inline long *getFilterReadStats() { return mFilterReadStats; }
   void addFilterResult(int result, int readNum = 1);
-  static FilterResult *merge(vector<FilterResult *> &list);
+  static FilterResult *merge(std::vector<FilterResult *> &list);
   void print();
   // for single end
-  void addAdapterTrimmed(string adapter, bool isR2 = false,
+  void addAdapterTrimmed(std::string adapter, bool isR2 = false,
                          bool incTrimmedCounter = true);
   // for paired end
-  void addAdapterTrimmed(string adapter1, string adapter2);
+  void addAdapterTrimmed(std::string adapter1, std::string adapter2);
   void addPolyXTrimmed(int base, int length);
   long getTotalPolyXTrimmedReads();
   long getTotalPolyXTrimmedBases();
   // a part of JSON report
-  void reportJson(ofstream &ofs, string padding);
+  void reportJson(std::ofstream &ofs, std::string padding);
   // a part of JSON report for adapters
-  void reportAdapterJson(ofstream &ofs, string padding);
+  void reportAdapterJson(std::ofstream &ofs, std::string padding);
   // a part of JSON report for polyX trim
-  void reportPolyXTrimJson(ofstream &ofs, string padding);
+  void reportPolyXTrimJson(std::ofstream &ofs, std::string padding);
   // a part of HTML report
-  void reportHtml(ofstream &ofs, long totalReads, long totalBases);
+  void reportHtml(std::ofstream &ofs, long totalReads, long totalBases);
   // a part of HTML report for adapters
-  void reportAdapterHtml(ofstream &ofs, long totalBases);
-  void outputAdaptersJson(ofstream &ofs,
-                          map<string, long, classcomp> &adapterCounts);
-  int outputAdaptersHtml(ofstream &ofs,
-                         map<string, long, classcomp> &adapterCounts,
+  void reportAdapterHtml(std::ofstream &ofs, long totalBases);
+  void
+  outputAdaptersJson(std::ofstream &ofs,
+                     std::map<std::string, long, classcomp> &adapterCounts);
+  int outputAdaptersHtml(std::ofstream &ofs,
+                         std::map<std::string, long, classcomp> &adapterCounts,
                          long totalBases, int limitCount = 0);
-  int getAdapterReportCount(map<string, long, classcomp> &adapterCounts);
+  int getAdapterReportCount(
+      std::map<std::string, long, classcomp> &adapterCounts);
   // deal with base correction results
   long *getCorrectionMatrix() { return mCorrectionMatrix; }
   long getTotalCorrectedBases();
@@ -63,7 +62,7 @@ public:
   long getCorrectionNum(char from, char to);
   void incCorrectedReads(int count);
   void addMergedPairs(int pairs);
-  bool isLowComplexity(string &adapter);
+  bool isLowComplexity(std::string &adapter);
 
 public:
   Options *mOptions;
@@ -77,8 +76,8 @@ private:
   long mTrimmedAdapterBases;
   long mTrimmedPolyXReads[4] = {0};
   long mTrimmedPolyXBases[4] = {0};
-  map<string, long, classcomp> mAdapter1;
-  map<string, long, classcomp> mAdapter2;
+  std::map<std::string, long, classcomp> mAdapter1;
+  std::map<std::string, long, classcomp> mAdapter2;
   long *mCorrectionMatrix;
 };
 

@@ -1,104 +1,80 @@
 #include "matcher.h"
 
-Matcher::Matcher() {}
-
-Matcher::~Matcher() {}
+#include <array>
+#include <limits>
+#include <memory>
 
 bool Matcher::matchWithOneInsertion(const char *insData, const char *normalData,
-                                    int cmplen, int diffLimit) {
-  // accumlated mismatches from left/right
-  int accMismatchFromLeft[cmplen];
-  int accMismatchFromRight[cmplen];
+                                    int cmplen, int diffLimit) noexcept {
+  if (!insData || !normalData)
+    return false;
+  if (cmplen < 2 || diffLimit < 0)
+    return false;
+  const int cap = (diffLimit == std::numeric_limits<int>::max())
+                      ? diffLimit
+                      : (diffLimit + 1);
 
-  // accMismatchFromLeft[0]: head vs. head
-  // accMismatchFromRight[cmplen-1]: tail vs. tail
-  accMismatchFromLeft[0] = insData[0] == normalData[0] ? 0 : 1;
-  accMismatchFromRight[cmplen - 1] =
-      insData[cmplen] == normalData[cmplen - 1] ? 0 : 1;
-  for (int i = 1; i < cmplen; i++) {
-    if (insData[i] != normalData[i])
-      accMismatchFromLeft[i] = accMismatchFromLeft[i - 1] + 1;
-    else
-      accMismatchFromLeft[i] = accMismatchFromLeft[i - 1];
+  int prefix[cmplen];
 
-    if (accMismatchFromLeft[i] + accMismatchFromRight[cmplen - 1] > diffLimit)
-      break;
+  prefix[0] = (insData[0] != normalData[0]);
+  for (int i = 1; i < cmplen; ++i) {
+    prefix[i] = prefix[i - 1] + (insData[i] != normalData[i]);
   }
-  for (int i = cmplen - 2; i >= 0; i--) {
-    if (insData[i + 1] != normalData[i])
-      accMismatchFromRight[i] = accMismatchFromRight[i + 1] + 1;
-    else
-      accMismatchFromRight[i] = accMismatchFromRight[i + 1];
-    if (accMismatchFromRight[i] + accMismatchFromLeft[0] > diffLimit) {
-      for (int p = 0; p < i; p++)
-        accMismatchFromRight[p] = diffLimit + 1;
-      break;
-    }
-  }
-
-  //    insData:     XXXXXXXXXXXXXXXXXXXXXXX[i]XXXXXXXXXXXXXXXXXXXXXXXX
-  // normalData:     YYYYYYYYYYYYYYYYYYYYYYY   YYYYYYYYYYYYYYYYYYYYYYYY
-  //       diff:    accMismatchFromLeft[i-1] + accMismatchFromRight[i]
-
-  // insertion can be from pos = 1 to cmplen - 1
-  for (int i = 1; i < cmplen; i++) {
-    if (accMismatchFromLeft[i - 1] + accMismatchFromRight[cmplen - 1] >
-        diffLimit)
-      return false;
-    int diff = accMismatchFromLeft[i - 1] + accMismatchFromRight[i];
+  int suffix = (insData[cmplen] != normalData[cmplen - 1]) ? 1 : 0;
+  if (suffix > cap)
+    suffix = cap;
+  for (int i = cmplen - 1; i >= 1; --i) {
+    const int diff = prefix[i - 1] + suffix;
     if (diff <= diffLimit)
       return true;
-  }
 
+    suffix += (insData[i] != normalData[i - 1]) ? 1 : 0;
+    if (suffix > cap)
+      suffix = cap;
+
+    if (prefix[0] + suffix > diffLimit)
+      break;
+  }
   return false;
 }
 
 int Matcher::diffWithOneInsertion(const char *insData, const char *normalData,
-                                  int cmplen, int diffLimit) {
-  // accumlated mismatches from left/right
-  int accMismatchFromLeft[cmplen];
-  int accMismatchFromRight[cmplen];
+                                  int cmplen, int diffLimit) noexcept {
+  if (!insData || !normalData)
+    return -1;
+  if (cmplen < 2 || diffLimit < 0)
+    return -1;
+  const int cap = (diffLimit == std::numeric_limits<int>::max())
+                      ? diffLimit
+                      : (diffLimit + 1);
 
-  // accMismatchFromLeft[0]: head vs. head
-  // accMismatchFromRight[cmplen-1]: tail vs. tail
-  accMismatchFromLeft[0] = insData[0] == normalData[0] ? 0 : 1;
-  accMismatchFromRight[cmplen - 1] =
-      insData[cmplen] == normalData[cmplen - 1] ? 0 : 1;
-  for (int i = 1; i < cmplen; i++) {
-    if (insData[i] != normalData[i])
-      accMismatchFromLeft[i] = accMismatchFromLeft[i - 1] + 1;
-    else
-      accMismatchFromLeft[i] = accMismatchFromLeft[i - 1];
-
-    if (accMismatchFromLeft[i] + accMismatchFromRight[cmplen - 1] > diffLimit)
-      break;
-  }
-  for (int i = cmplen - 2; i >= 0; i--) {
-    if (insData[i + 1] != normalData[i])
-      accMismatchFromRight[i] = accMismatchFromRight[i + 1] + 1;
-    else
-      accMismatchFromRight[i] = accMismatchFromRight[i + 1];
-    if (accMismatchFromRight[i] + accMismatchFromLeft[0] > diffLimit) {
-      for (int p = 0; p < i; p++)
-        accMismatchFromRight[p] = diffLimit + 1;
-      break;
-    }
+  int prefix[cmplen];
+  prefix[0] = (insData[0] != normalData[0]);
+  for (int i = 1; i < cmplen; ++i) {
+    prefix[i] = prefix[i - 1] + (insData[i] != normalData[i]);
   }
 
-  //    insData:     XXXXXXXXXXXXXXXXXXXXXXX[i]XXXXXXXXXXXXXXXXXXXXXXXX
-  // normalData:     YYYYYYYYYYYYYYYYYYYYYYY   YYYYYYYYYYYYYYYYYYYYYYYY
-  //       diff:    accMismatchFromLeft[i-1] + accMismatchFromRight[i]
+  int minDiff = cap;
 
-  int minDiff = 100000000;
-  // insertion can be from pos = 1 to cmplen - 1
-  for (int i = 1; i < cmplen; i++) {
-    if (accMismatchFromLeft[i - 1] + accMismatchFromRight[cmplen - 1] >
-        diffLimit)
-      return -1; // -1 means higher than diffLimit
-    int diff = accMismatchFromLeft[i - 1] + accMismatchFromRight[i];
-    if (diff <= minDiff)
+  int suffix = (insData[cmplen] != normalData[cmplen - 1]) ? 1 : 0;
+  if (suffix > cap)
+    suffix = cap;
+
+  for (int i = cmplen - 1; i >= 1; --i) {
+    const int diff = prefix[i - 1] + suffix;
+    if (diff < minDiff) {
       minDiff = diff;
+      if (minDiff == 0)
+        return 0; // can't do better
+    }
+
+    suffix += (insData[i] != normalData[i - 1]) ? 1 : 0;
+    if (suffix > cap)
+      suffix = cap;
+
+    if (prefix[0] + suffix > diffLimit)
+      break;
   }
 
-  return minDiff;
+  return (minDiff <= diffLimit) ? minDiff : -1;
 }

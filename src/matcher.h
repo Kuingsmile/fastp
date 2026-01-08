@@ -1,21 +1,14 @@
 #ifndef MATCHER_H
 #define MATCHER_H
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string>
-
-using namespace std;
-
 class Matcher {
 public:
-  Matcher();
-  ~Matcher();
+  Matcher() = delete;
 
   static bool matchWithOneInsertion(const char *insData, const char *normalData,
-                                    int cmplen, int diffLimit);
+                                    int cmplen, int diffLimit) noexcept;
   static int diffWithOneInsertion(const char *insData, const char *normalData,
-                                  int cmplen, int diffLimit);
+                                  int cmplen, int diffLimit) noexcept;
 };
 
 #endif

@@ -67,9 +67,9 @@ OverlapResult OverlapAnalysis::analyze(std::string_view r1, std::string_view r2,
   offset = 0;
   while (offset > -(len2 - overlapRequire)) {
     // the overlap length of r1 & r2 when r2 is move right for offset
-    overlap_len = min(len1, len2 - abs(offset));
+    overlap_len = std::min(len1, len2 - abs(offset));
     int overlapDiffLimit =
-        min(diffLimit, (int)(overlap_len * diffPercentLimit));
+        std::min(diffLimit, (int)(overlap_len * diffPercentLimit));
 
     diff = 0;
     int i = 0;
@@ -100,9 +100,9 @@ OverlapResult OverlapAnalysis::analyze(std::string_view r1, std::string_view r2,
     offset = 0;
     while (offset < len1 - overlapRequire) {
       // the overlap length of r1 & r2 when r2 is move right for offset
-      overlap_len = min(len1 - offset, len2);
+      overlap_len = std::min(len1 - offset, len2);
       int overlapDiffLimit =
-          min(diffLimit, (int)(overlap_len * diffPercentLimit));
+          std::min(diffLimit, (int)(overlap_len * diffPercentLimit));
 
       int diff = Matcher::diffWithOneInsertion(
           str1 + offset, str2, overlap_len - 1, overlapDiffLimit);
@@ -127,9 +127,9 @@ OverlapResult OverlapAnalysis::analyze(std::string_view r1, std::string_view r2,
     offset = 0;
     while (offset > -(len2 - overlapRequire)) {
       // the overlap length of r1 & r2 when r2 is move right for offset
-      overlap_len = min(len1, len2 - abs(offset));
+      overlap_len = std::min(len1, len2 - abs(offset));
       int overlapDiffLimit =
-          min(diffLimit, (int)(overlap_len * diffPercentLimit));
+          std::min(diffLimit, (int)(overlap_len * diffPercentLimit));
 
       int diff = Matcher::diffWithOneInsertion(
           str1, str2 - offset, overlap_len - 1, overlapDiffLimit);
