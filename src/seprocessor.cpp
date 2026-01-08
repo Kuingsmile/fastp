@@ -206,10 +206,10 @@ bool SingleEndProcessor::processSingleEnd(ReadPack *pack,
   int tid = config->getThreadId();
 
   int readPassed = 0;
-  for (int p = 0; p < pack->count; p++) {
+  for (int p = 0; p < pack->data.size(); p++) {
 
     // original read1
-    Read *or1 = pack->data[p];
+    Read *or1 = pack->data[p].get();
 
     // stats the original read before trimming
     config->getPreStats1()->statRead(or1);
@@ -278,13 +278,13 @@ bool SingleEndProcessor::processSingleEnd(ReadPack *pack,
 
     if (!dedupOut) {
       if (r1 != NULL && result == PASS_FILTER) {
-        r1->appendToString(outstr);
+        r1->appendToString(*outstr);
 
         // stats the read after filtering
         config->getPostStats1()->statRead(r1);
         readPassed++;
       } else if (mFailedWriter) {
-        or1->appendToStringWithTag(failedOut, FAILED_TYPES[result]);
+        or1->appendToStringWithTag(*failedOut, FAILED_TYPES[result]);
       }
     }
 
@@ -313,14 +313,13 @@ bool SingleEndProcessor::processSingleEnd(ReadPack *pack,
   if (mOptions->split.byFileLines)
     config->markProcessed(readPassed);
   else
-    config->markProcessed(pack->count);
+    config->markProcessed(pack->data.size());
 
   if (outstr)
     delete outstr;
   if (failedOut)
     delete failedOut;
 
-  delete pack->data;
   delete pack;
 
   mPackProcessedCounter++;
@@ -335,8 +334,8 @@ void SingleEndProcessor::readerTask() {
   int slept = 0;
   long readNum = 0;
   bool splitSizeReEvaluated = false;
-  Read **data = new Read *[PACK_SIZE];
-  memset(data, 0, sizeof(Read *) * PACK_SIZE);
+  std::vector<std::unique_ptr<Read>> data;
+  data.reserve(PACK_SIZE);
   FastqReader reader(mOptions->in1, true, mOptions->phred64);
   reader.setReadPool(mReadPool);
   int count = 0;
@@ -346,18 +345,16 @@ void SingleEndProcessor::readerTask() {
     if (!read || needToBreak) {
       // the last pack
       ReadPack *pack = new ReadPack;
-      pack->data = data;
-      pack->count = count;
+      pack->data = std::move(data);
       mInputLists[mPackReadCounter % mOptions->thread]->produce(pack);
       mPackReadCounter++;
-      data = NULL;
       if (read) {
         delete read;
         read = NULL;
       }
       break;
     }
-    data[count] = read;
+    data.emplace_back(read);
     count++;
     // configured to process only first N reads
     if (mOptions->readsToProcess > 0 &&
@@ -372,13 +369,12 @@ void SingleEndProcessor::readerTask() {
     // a full pack
     if (count == PACK_SIZE || needToBreak) {
       ReadPack *pack = new ReadPack;
-      pack->data = data;
-      pack->count = count;
+      pack->data = std::move(data);
       mInputLists[mPackReadCounter % mOptions->thread]->produce(pack);
       mPackReadCounter++;
       // re-initialize data for next pack
-      data = new Read *[PACK_SIZE];
-      memset(data, 0, sizeof(Read *) * PACK_SIZE);
+      data.clear();
+      data.reserve(PACK_SIZE);
       // if the processor is far behind this reader, sleep and wait to limit
       // memory usage
       while (mPackReadCounter - mPackProcessedCounter > PACK_IN_MEM_LIMIT) {
@@ -424,10 +420,6 @@ void SingleEndProcessor::readerTask() {
     loginfo("Loading completed with " + to_string(mPackReadCounter) + " packs");
   }
   // lock.unlock();
-
-  // if the last data initialized is not used, free it
-  if (data != NULL)
-    delete[] data;
 }
 
 void SingleEndProcessor::processorTask(ThreadConfig *config) {

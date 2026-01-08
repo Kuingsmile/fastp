@@ -3,9 +3,9 @@ fastp
 .cache
 # Prerequisites
 *.d
-/test
+test/
 *.fasta
-
+build/
 # Compiled Object files
 *.slo
 *.lo

@@ -8,24 +8,24 @@ void UmiProcessor::process(Read *r1, Read *r2) {
   if (!mOptions->umi.enabled)
     return;
 
-  string umi;
+  std::string umi;
   if (mOptions->umi.location == static_cast<int>(UMILocation::Index1))
     umi = r1->firstIndex();
   else if (mOptions->umi.location == static_cast<int>(UMILocation::Index2) &&
            r2)
     umi = r2->lastIndex();
   else if (mOptions->umi.location == static_cast<int>(UMILocation::Read1)) {
-    umi = r1->mSeq->substr(0, min(r1->length(), mOptions->umi.length));
+    umi = r1->mSeq.substr(0, min(r1->length(), mOptions->umi.length));
     r1->trimFront(umi.length() + mOptions->umi.skip);
   } else if (mOptions->umi.location == static_cast<int>(UMILocation::Read2) &&
              r2) {
-    umi = r2->mSeq->substr(0, min(r2->length(), mOptions->umi.length));
+    umi = r2->mSeq.substr(0, min(r2->length(), mOptions->umi.length));
     r2->trimFront(umi.length() + mOptions->umi.skip);
   } else if (mOptions->umi.location ==
              static_cast<int>(UMILocation::PerIndex)) {
-    string umiMerged = r1->firstIndex();
+    std::string umiMerged = std::string(r1->firstIndex());
     if (r2) {
-      umiMerged = umiMerged + "_" + r2->lastIndex();
+      umiMerged = umiMerged + "_" + std::string(r2->lastIndex());
     }
 
     addUmiToName(r1, umiMerged);
@@ -33,12 +33,13 @@ void UmiProcessor::process(Read *r1, Read *r2) {
       addUmiToName(r2, umiMerged);
     }
   } else if (mOptions->umi.location == static_cast<int>(UMILocation::PerRead)) {
-    string umi1 = r1->mSeq->substr(0, min(r1->length(), mOptions->umi.length));
-    string umiMerged = umi1;
+    std::string umi1 =
+        r1->mSeq.substr(0, min(r1->length(), mOptions->umi.length));
+    std::string umiMerged = umi1;
     r1->trimFront(umi1.length() + mOptions->umi.skip);
     if (r2) {
-      string umi2 =
-          r2->mSeq->substr(0, min(r2->length(), mOptions->umi.length));
+      std::string umi2 =
+          r2->mSeq.substr(0, min(r2->length(), mOptions->umi.length));
       umiMerged = umiMerged + "_" + umi2;
       r2->trimFront(umi2.length() + mOptions->umi.skip);
     }
@@ -66,16 +67,16 @@ void UmiProcessor::addUmiToName(Read *r, string umi) {
   else
     tag = delimiter + mOptions->umi.prefix + "_" + umi;
   int spacePos = -1;
-  for (int i = 0; i < r->mName->length(); i++) {
-    if (r->mName->at(i) == ' ') {
+  for (int i = 0; i < r->mName.length(); i++) {
+    if (r->mName.at(i) == ' ') {
       spacePos = i;
       break;
     }
   }
   if (spacePos == -1) {
-    r->mName->append(tag);
+    r->mName.append(tag);
   } else {
-    r->mName->insert(spacePos, tag);
+    r->mName.insert(spacePos, tag);
   }
 }
 

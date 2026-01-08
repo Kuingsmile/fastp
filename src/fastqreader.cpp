@@ -300,10 +300,10 @@ Read *FastqReader::read() {
     readInPool = mReadPool->getOne();
 
   if (readInPool) {
-    name = readInPool->mName;
-    sequence = readInPool->mSeq;
-    strand = readInPool->mStrand;
-    quality = readInPool->mQuality;
+    name = &readInPool->mName;
+    sequence = &readInPool->mSeq;
+    strand = &readInPool->mStrand;
+    quality = &readInPool->mQuality;
   } else {
     name = new string();
     sequence = new string();
@@ -348,7 +348,7 @@ Read *FastqReader::read() {
   if (readInPool)
     return readInPool;
   else
-    return new Read(name, sequence, strand, quality, mPhred64);
+    return new Read(*name, *sequence, *strand, *quality, mPhred64);
 }
 
 void FastqReader::close() {
@@ -441,8 +441,8 @@ ReadPair *FastqReaderPair::read() {
   else
     r = mRight->read();
   if (!l || !r) {
-    return NULL;
+    return nullptr;
   } else {
-    return new ReadPair(l, r);
+    return new ReadPair(std::unique_ptr<Read>(l), std::unique_ptr<Read>(r));
   }
 }

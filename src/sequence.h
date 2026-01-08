@@ -1,29 +1,25 @@
 #ifndef SEQUENCE_H
 #define SEQUENCE_H
 
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string>
-
-using namespace std;
 
 class Sequence {
 public:
-  Sequence();
-  Sequence(string *seq);
-  ~Sequence();
-  void print();
-  int length();
-  Sequence reverseComplement();
+  Sequence() = default;
+  explicit Sequence(std::string seq);
+  ~Sequence() = default;
 
-  Sequence operator~();
+  void print() const;
+  std::size_t length() const noexcept { return mStr.length(); }
+
+  Sequence reverseComplement() const;
+  Sequence operator~() const { return reverseComplement(); }
 
   static bool test();
-  static string reverseComplement(string *origin);
+  static std::string reverseComplement(std::string_view origin);
 
 public:
-  string *mStr;
+  std::string mStr;
 };
 
 #endif

@@ -25,7 +25,8 @@
   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#pragma once
+#ifndef CMDLINE_H
+#define CMDLINE_H
 
 #include <algorithm>
 #include <cstdlib>
@@ -582,3 +583,5 @@ private:
 };
 
 } // namespace cmdline
+
+#endif

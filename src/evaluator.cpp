@@ -87,7 +87,7 @@ void Evaluator::computeOverRepSeq(string filename, map<string, long> &hotseqs,
     for (int s = 0; s < 5; s++) {
       int step = steps[s];
       for (int i = 0; i < rlen - step; i++) {
-        string seq = r->mSeq->substr(i, step);
+        string seq = r->mSeq.substr(i, step);
         if (seqCounts.count(seq) > 0)
           seqCounts[seq]++;
         else
@@ -233,7 +233,7 @@ string Evaluator::checkKnownAdapters(Read **reads, long num) {
   int curMaxCount = 0;
   for (long i = 0; i < num; i++) {
     Read *r = reads[i];
-    const char *rdata = r->mSeq->c_str();
+    const char *rdata = r->mSeq.c_str();
     int rlen = r->length();
 
     checkedReads++;
@@ -377,7 +377,7 @@ string Evaluator::evalAdapterAndReadNum(long &readNum, bool isR2) {
   memset(counts, 0, sizeof(unsigned int) * size);
   for (int i = 0; i < records; i++) {
     Read *r = loadedReads[i];
-    const char *data = r->mSeq->c_str();
+    const char *data = r->mSeq.c_str();
     int key = -1;
     for (int pos = 20; pos <= r->length() - keylen - shiftTail; pos++) {
       key = seq2int(r->mSeq, pos, keylen, key);
@@ -485,15 +485,15 @@ string Evaluator::getAdapterWithSeed(int seed, Read **loadedReads, long records,
   // forward search
   for (int i = 0; i < records; i++) {
     Read *r = loadedReads[i];
-    const char *data = r->mSeq->c_str();
+    const char *data = r->mSeq.c_str();
     int key = -1;
     for (int pos = 20;
          pos <= r->length() - keylen - shiftTail && pos < MAX_SEARCH_LENGTH;
          pos++) {
       key = seq2int(r->mSeq, pos, keylen, key);
       if (key == seed) {
-        forwardTree.addSeq(r->mSeq->substr(pos + keylen, r->length() - keylen -
-                                                             shiftTail - pos));
+        forwardTree.addSeq(r->mSeq.substr(pos + keylen, r->length() - keylen -
+                                                            shiftTail - pos));
       }
     }
   }
@@ -504,14 +504,14 @@ string Evaluator::getAdapterWithSeed(int seed, Read **loadedReads, long records,
   // backward search
   for (int i = 0; i < records; i++) {
     Read *r = loadedReads[i];
-    const char *data = r->mSeq->c_str();
+    const char *data = r->mSeq.c_str();
     int key = -1;
     for (int pos = 20;
          pos <= r->length() - keylen - shiftTail && pos < MAX_SEARCH_LENGTH;
          pos++) {
       key = seq2int(r->mSeq, pos, keylen, key);
       if (key == seed) {
-        string seq = r->mSeq->substr(0, pos);
+        string seq = r->mSeq.substr(0, pos);
         string rcseq = reverse(seq);
         backwardTree.addSeq(rcseq);
       }

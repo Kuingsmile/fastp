@@ -27,8 +27,8 @@ bool AdapterTrimmer::trimByOverlapAnalysis(Read *r1, Read *r2, FilterResult *fr,
 
     int len1 = min(r1->length(), ol + frontTrimmed2);
     int len2 = min(r2->length(), ol + frontTrimmed1);
-    string adapter1 = r1->mSeq->substr(len1, r1->length() - len1);
-    string adapter2 = r2->mSeq->substr(len2, r2->length() - len2);
+    string adapter1 = r1->mSeq.substr(len1, r1->length() - len1);
+    string adapter2 = r2->mSeq.substr(len2, r2->length() - len2);
 
     if (DEBUG_MODE) {
       cerr << adapter1 << endl;
@@ -60,14 +60,14 @@ bool AdapterTrimmer::trimByMultiSequences(Read *r, FilterResult *fr,
     matchReq = 6;
   bool trimmed = false;
 
-  string *originalSeq = r->mSeq;
+  std::string originalSeq = r->mSeq;
   for (int i = 0; i < adapterList.size(); i++) {
     trimmed |= trimBySequence(r, NULL, adapterList[i], isR2, matchReq);
   }
 
   if (trimmed) {
-    string adapter =
-        originalSeq->substr(r->length(), originalSeq->length() - r->length());
+    std::string adapter =
+        originalSeq.substr(r->length(), originalSeq.length() - r->length());
     if (fr)
       fr->addAdapterTrimmed(adapter, isR2, incTrimmedCounter);
     else
@@ -86,7 +86,7 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
   int alen = adapterseq.length();
 
   const char *adata = adapterseq.c_str();
-  const char *rdata = r->mSeq->c_str();
+  const char *rdata = r->mSeq.c_str();
 
   if (alen < matchReq)
     return false;
@@ -162,15 +162,15 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
 
   if (found) {
     if (pos < 0) {
-      string adapter = adapterseq.substr(0, alen + pos);
-      r->mSeq->resize(0);
-      r->mQuality->resize(0);
+      std::string adapter = adapterseq.substr(0, alen + pos);
+      r->mSeq.resize(0);
+      r->mQuality.resize(0);
       if (fr) {
         fr->addAdapterTrimmed(adapter, isR2);
       }
 
     } else {
-      string adapter = r->mSeq->substr(pos, rlen - pos);
+      std::string adapter = r->mSeq.substr(pos, rlen - pos);
       r->resize(pos);
       if (fr) {
         fr->addAdapterTrimmed(adapter, isR2);
@@ -185,9 +185,9 @@ bool AdapterTrimmer::trimBySequence(Read *r, FilterResult *fr,
 bool AdapterTrimmer::test() {
   Read r("@name", "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCCCGGGG",
          "+", "///EEEEEEEEEEEEEEEEEEEEEEEEEE////EEEEEEEEEEEEE////E////E");
-  string adapter = "TTTTCCACGGGGATACTACTG";
+  std::string adapter = "TTTTCCACGGGGATACTACTG";
   bool trimmed = AdapterTrimmer::trimBySequence(&r, NULL, adapter);
-  if (*r.mSeq != "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAA")
+  if (r.mSeq != "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAA")
     return false;
 
   Read read("@name",
@@ -196,15 +196,14 @@ bool AdapterTrimmer::test() {
             "+",
             "///EEEEEEEEEEEEEEEEEEEEEEEEEE////EEEEEEEEEEEEE////E////"
             "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
-  vector<string> adapterList;
+  std::vector<std::string> adapterList;
   adapterList.push_back("GCTAGCTAGCTAGCTA");
   adapterList.push_back("AAATTTCCCGGGAAATTTCCCGGG");
   adapterList.push_back("ATCGATCGATCGATCG");
   adapterList.push_back("AATTCCGGAATTCCGG");
   trimmed = AdapterTrimmer::trimByMultiSequences(&read, NULL, adapterList);
-  if (*read.mSeq !=
-      "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCCCGGGG") {
-    cerr << read.mSeq << endl;
+  if (read.mSeq != "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCCCGGGG") {
+    std::cerr << read.mSeq << std::endl;
     return false;
   }
 

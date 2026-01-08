@@ -379,12 +379,12 @@ void PairEndProcessor::recycleToPool2(int tid, Read *r) {
 
 bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
                                       ThreadConfig *config) {
-  if (leftPack->count != rightPack->count) {
+  if (leftPack->data.size() != rightPack->data.size()) {
     cerr << endl;
     cerr << "WARNNIG: different read numbers of the " << mPackProcessedCounter
          << " pack" << endl;
-    cerr << "Read1 pack size: " << leftPack->count << endl;
-    cerr << "Read2 pack size: " << rightPack->count << endl;
+    cerr << "Read1 pack size: " << leftPack->data.size() << endl;
+    cerr << "Read2 pack size: " << rightPack->data.size() << endl;
     cerr << "Ignore the unmatched reads" << endl << endl;
     shouldStopReading = true;
   }
@@ -401,9 +401,10 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
 
   int readPassed = 0;
   int mergedCount = 0;
-  for (int p = 0; p < leftPack->count && p < rightPack->count; p++) {
-    Read *or1 = leftPack->data[p];
-    Read *or2 = rightPack->data[p];
+  for (int p = 0; p < leftPack->data.size() && p < rightPack->data.size();
+       p++) {
+    Read *or1 = leftPack->data[p].get();
+    Read *or2 = rightPack->data[p].get();
 
     int lowQualNum1 = 0;
     int nBaseNum1 = 0;
@@ -502,12 +503,12 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
           r1, r2, mOptions->overlapDiffLimit, mOptions->overlapRequire, 0);
       if (ov.overlapped) {
         Read *overlappedRead = new Read(
-            new string(*r1->mName),
-            new string(r1->mSeq->substr(max(0, ov.offset)), ov.overlap_len),
-            new string(*r1->mStrand),
-            new string(r1->mQuality->substr(max(0, ov.offset)),
-                       ov.overlap_len));
-        overlappedRead->appendToString(overlappedOut);
+            r1->mName,
+            std::string(r1->mSeq.substr(max(0, ov.offset)), ov.overlap_len),
+            r1->mStrand,
+            std::string(r1->mQuality.substr(max(0, ov.offset)),
+                        ov.overlap_len));
+        overlappedRead->appendToString(*overlappedOut);
         recycleToPool1(tid, overlappedRead);
       }
     }
@@ -542,11 +543,11 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
           r1, r2, mOptions->overlapDiffLimit, mOptions->overlapRequire,
           mOptions->overlapDiffPercentLimit / 100.0);
       if (ov.overlapped) {
-        merged = OverlapAnalysis::merge(r1, r2, ov);
+        merged = OverlapAnalysis::merge(r1, r2, ov).get();
         int result = mFilter->passFilter(merged);
         config->addFilterResult(result, 2);
         if (result == PASS_FILTER) {
-          merged->appendToString(mergedOutput);
+          merged->appendToString(*mergedOutput);
           config->getPostStats1()->statRead(merged);
           readPassed++;
           mergedCount++;
@@ -557,14 +558,14 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
         int result1 = mFilter->passFilter(r1);
         config->addFilterResult(result1, 1);
         if (result1 == PASS_FILTER && !dedupOut) {
-          r1->appendToString(mergedOutput);
+          r1->appendToString(*mergedOutput);
           config->getPostStats1()->statRead(r1);
         }
 
         int result2 = mFilter->passFilter(r2);
         config->addFilterResult(result2, 1);
         if (result2 == PASS_FILTER && !dedupOut) {
-          r2->appendToString(mergedOutput);
+          r2->appendToString(*mergedOutput);
           config->getPostStats1()->statRead(r2);
         }
         if (result1 == PASS_FILTER && result2 == PASS_FILTER)
@@ -586,11 +587,11 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
             result2 == PASS_FILTER) {
 
           if (mOptions->outputToSTDOUT && !mOptions->merge.enabled) {
-            r1->appendToString(singleOutput);
-            r2->appendToString(singleOutput);
+            r1->appendToString(*singleOutput);
+            r2->appendToString(*singleOutput);
           } else {
-            r1->appendToString(outstr1);
-            r2->appendToString(outstr2);
+            r1->appendToString(*outstr1);
+            r2->appendToString(*outstr2);
           }
 
           // stats the read after filtering
@@ -602,28 +603,28 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
           readPassed++;
         } else if (r1 != NULL && result1 == PASS_FILTER) {
           if (mUnpairedLeftWriter) {
-            r1->appendToString(unpairedOut1);
+            r1->appendToString(*unpairedOut1);
             if (mFailedWriter)
-              or2->appendToStringWithTag(failedOut, FAILED_TYPES[result2]);
+              or2->appendToStringWithTag(*failedOut, FAILED_TYPES[result2]);
           } else {
             if (mFailedWriter) {
-              or1->appendToStringWithTag(failedOut, "paired_read_is_failing");
-              or2->appendToStringWithTag(failedOut, FAILED_TYPES[result2]);
+              or1->appendToStringWithTag(*failedOut, "paired_read_is_failing");
+              or2->appendToStringWithTag(*failedOut, FAILED_TYPES[result2]);
             }
           }
         } else if (r2 != NULL && result2 == PASS_FILTER) {
           if (mUnpairedRightWriter) {
-            r2->appendToString(unpairedOut2);
+            r2->appendToString(*unpairedOut2);
             if (mFailedWriter)
-              or1->appendToStringWithTag(failedOut, FAILED_TYPES[result1]);
+              or1->appendToStringWithTag(*failedOut, FAILED_TYPES[result1]);
           } else if (mUnpairedLeftWriter) {
-            r2->appendToString(unpairedOut1);
+            r2->appendToString(*unpairedOut1);
             if (mFailedWriter)
-              or1->appendToStringWithTag(failedOut, FAILED_TYPES[result1]);
+              or1->appendToStringWithTag(*failedOut, FAILED_TYPES[result1]);
           } else {
             if (mFailedWriter) {
-              or1->appendToStringWithTag(failedOut, FAILED_TYPES[result1]);
-              or2->appendToStringWithTag(failedOut, "paired_read_is_failing");
+              or1->appendToStringWithTag(*failedOut, FAILED_TYPES[result1]);
+              or2->appendToStringWithTag(*failedOut, "paired_read_is_failing");
             }
           }
         }
@@ -714,7 +715,7 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
   if (mOptions->split.byFileLines)
     config->markProcessed(readPassed);
   else
-    config->markProcessed(leftPack->count);
+    config->markProcessed(leftPack->data.size());
 
   if (mOptions->merge.enabled) {
     config->addMergedPairs(mergedCount);
@@ -737,8 +738,6 @@ bool PairEndProcessor::processPairEnd(ReadPack *leftPack, ReadPack *rightPack,
   if (overlappedOut)
     delete overlappedOut;
 
-  delete leftPack->data;
-  delete rightPack->data;
   delete leftPack;
   delete rightPack;
 
@@ -775,8 +774,8 @@ void PairEndProcessor::readerTask(bool isLeft) {
   int slept = 0;
   long readNum = 0;
   bool splitSizeReEvaluated = false;
-  Read **data = new Read *[PACK_SIZE];
-  memset(data, 0, sizeof(Read *) * PACK_SIZE);
+  std::vector<std::unique_ptr<Read>> data;
+  data.reserve(PACK_SIZE);
   FastqReader *reader = NULL;
   if (isLeft) {
     reader = new FastqReader(mOptions->in1, true, mOptions->phred64);
@@ -795,8 +794,7 @@ void PairEndProcessor::readerTask(bool isLeft) {
     if (!read || needToBreak) {
       // the last pack
       ReadPack *pack = new ReadPack;
-      pack->data = data;
-      pack->count = count;
+      pack->data = std::move(data);
 
       if (isLeft) {
         mLeftInputLists[mLeftPackReadCounter % mOptions->thread]->produce(pack);
@@ -806,14 +804,13 @@ void PairEndProcessor::readerTask(bool isLeft) {
             pack);
         mRightPackReadCounter++;
       }
-      data = NULL;
       if (read) {
         delete read;
         read = NULL;
       }
       break;
     }
-    data[count] = read;
+    data.emplace_back(read);
     count++;
     // configured to process only first N reads
     if (mOptions->readsToProcess > 0 &&
@@ -833,8 +830,7 @@ void PairEndProcessor::readerTask(bool isLeft) {
     // a full pack
     if (count == PACK_SIZE || needToBreak) {
       ReadPack *pack = new ReadPack;
-      pack->data = data;
-      pack->count = count;
+      pack->data = std::move(data);
 
       if (isLeft) {
         mLeftInputLists[mLeftPackReadCounter % mOptions->thread]->produce(pack);
@@ -846,8 +842,8 @@ void PairEndProcessor::readerTask(bool isLeft) {
       }
 
       // re-initialize data for next pack
-      data = new Read *[PACK_SIZE];
-      memset(data, 0, sizeof(Read *) * PACK_SIZE);
+      data.clear();
+      data.reserve(PACK_SIZE);
       // if the processor is far behind this reader, sleep and wait to limit
       // memory usage
       if (isLeft) {
@@ -916,9 +912,7 @@ void PairEndProcessor::readerTask(bool isLeft) {
     }
   }
 
-  // if the last data initialized is not used, free it
-  if (data != NULL)
-    delete[] data;
+  // data vector will be automatically cleaned up
   if (reader != NULL)
     delete reader;
 }
@@ -930,10 +924,10 @@ void PairEndProcessor::interleavedReaderTask() {
   int slept = 0;
   long readNum = 0;
   bool splitSizeReEvaluated = false;
-  Read **dataLeft = new Read *[PACK_SIZE];
-  Read **dataRight = new Read *[PACK_SIZE];
-  memset(dataLeft, 0, sizeof(Read *) * PACK_SIZE);
-  memset(dataRight, 0, sizeof(Read *) * PACK_SIZE);
+  std::vector<std::unique_ptr<Read>> dataLeft;
+  std::vector<std::unique_ptr<Read>> dataRight;
+  dataLeft.reserve(PACK_SIZE);
+  dataRight.reserve(PACK_SIZE);
   FastqReaderPair reader(mOptions->in1, mOptions->in2, true, mOptions->phred64,
                          true);
   int count = 0;
@@ -946,10 +940,8 @@ void PairEndProcessor::interleavedReaderTask() {
       // the last pack
       ReadPack *packLeft = new ReadPack;
       ReadPack *packRight = new ReadPack;
-      packLeft->data = dataLeft;
-      packRight->data = dataRight;
-      packLeft->count = count;
-      packRight->count = count;
+      packLeft->data = std::move(dataLeft);
+      packRight->data = std::move(dataRight);
 
       mLeftInputLists[mLeftPackReadCounter % mOptions->thread]->produce(
           packLeft);
@@ -959,16 +951,14 @@ void PairEndProcessor::interleavedReaderTask() {
           packRight);
       mRightPackReadCounter++;
 
-      dataLeft = NULL;
-      dataRight = NULL;
       if (pair) {
         delete pair;
         pair = NULL;
       }
       break;
     }
-    dataLeft[count] = pair->mLeft;
-    dataRight[count] = pair->mRight;
+    dataLeft.emplace_back(std::move(pair->mLeft));
+    dataRight.emplace_back(std::move(pair->mRight));
     count++;
     // configured to process only first N reads
     if (mOptions->readsToProcess > 0 &&
@@ -985,10 +975,8 @@ void PairEndProcessor::interleavedReaderTask() {
     if (count == PACK_SIZE || needToBreak) {
       ReadPack *packLeft = new ReadPack;
       ReadPack *packRight = new ReadPack;
-      packLeft->data = dataLeft;
-      packRight->data = dataRight;
-      packLeft->count = count;
-      packRight->count = count;
+      packLeft->data = std::move(dataLeft);
+      packRight->data = std::move(dataRight);
 
       mLeftInputLists[mLeftPackReadCounter % mOptions->thread]->produce(
           packLeft);
@@ -999,10 +987,10 @@ void PairEndProcessor::interleavedReaderTask() {
       mRightPackReadCounter++;
 
       // re-initialize data for next pack
-      dataLeft = new Read *[PACK_SIZE];
-      dataRight = new Read *[PACK_SIZE];
-      memset(dataLeft, 0, sizeof(Read *) * PACK_SIZE);
-      memset(dataRight, 0, sizeof(Read *) * PACK_SIZE);
+      dataLeft.clear();
+      dataRight.clear();
+      dataLeft.reserve(PACK_SIZE);
+      dataRight.reserve(PACK_SIZE);
       // if the consumer is far behind this producer, sleep and wait to limit
       // memory usage
       while (mLeftPackReadCounter - mPackProcessedCounter > PACK_IN_MEM_LIMIT) {
@@ -1055,11 +1043,7 @@ void PairEndProcessor::interleavedReaderTask() {
   mLeftReaderFinished = true;
   mRightReaderFinished = true;
 
-  // if the last data initialized is not used, free it
-  if (dataLeft != NULL)
-    delete[] dataLeft;
-  if (dataRight != NULL)
-    delete[] dataRight;
+  // data vectors will be automatically cleaned up
 }
 
 void PairEndProcessor::processorTask(ThreadConfig *config) {

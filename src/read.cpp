@@ -1,258 +1,241 @@
 #include "read.h"
 #include "sequence.h"
+#include <algorithm>
+#include <charconv>
 #include <cstring>
 #include <sstream>
 
-Read::Read(string *name, string *seq, string *strand, string *quality,
-           bool phred64) {
-  mName = name;
-  mSeq = seq;
-  mStrand = strand;
-  mQuality = quality;
+namespace {
+inline void append_int(std::string &s, int v) {
+  char buf[32];
+  auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), v);
+  (void)ec;
+  s.append(buf, static_cast<size_t>(ptr - buf));
+}
+} // namespace
+
+Read::Read(std::string name, std::string seq, std::string strand,
+           std::string quality, bool phred64)
+    : mName(std::move(name)), mSeq(std::move(seq)), mStrand(std::move(strand)),
+      mQuality(std::move(quality)) {
   if (phred64)
     convertPhred64To33();
 }
 
 Read::Read(const char *name, const char *seq, const char *strand,
-           const char *quality, bool phred64) {
-  mName = new string(name);
-  mSeq = new string(seq);
-  mStrand = new string(strand);
-  mQuality = new string(quality);
+           const char *quality, bool phred64)
+    : mName(name), mSeq(seq), mStrand(strand), mQuality(quality) {
   if (phred64)
     convertPhred64To33();
 }
 
-Read::~Read() {
-  if (mName)
-    delete mName;
-  if (mStrand)
-    delete mStrand;
-  if (mQuality)
-    delete mQuality;
-  if (mSeq)
-    delete mSeq;
-}
-
 void Read::convertPhred64To33() {
-  for (int i = 0; i < mQuality->length(); i++) {
-    (*mQuality)[i] = max(33, (*mQuality)[i] - (64 - 33));
+  for (char &q : mQuality) {
+    int v = static_cast<unsigned char>(q);
+    v = v - (64 - 33);
+    if (v < 33)
+      v = 33;
+    q = static_cast<char>(v);
   }
 }
 
-void Read::print() {
-  std::cerr << *mName << endl;
-  std::cerr << *(mSeq) << endl;
-  std::cerr << *mStrand << endl;
-  std::cerr << *mQuality << endl;
+void Read::print() const {
+  std::cerr << mName << '\n';
+  std::cerr << mSeq << '\n';
+  std::cerr << mStrand << '\n';
+  std::cerr << mQuality << '\n';
 }
 
-void Read::printFile(ofstream &file) {
-  file << *mName << endl;
-  file << *mSeq << endl;
-  file << *mStrand << endl;
-  file << *mQuality << endl;
+void Read::printFile(std::ofstream &file) const {
+  file.write(mName.data(), static_cast<std::streamsize>(mName.size()));
+  file.put('\n');
+  file.write(mSeq.data(), static_cast<std::streamsize>(mSeq.size()));
+  file.put('\n');
+  file.write(mStrand.data(), static_cast<std::streamsize>(mStrand.size()));
+  file.put('\n');
+  file.write(mQuality.data(), static_cast<std::streamsize>(mQuality.size()));
+  file.put('\n');
 }
 
-Read *Read::reverseComplement() {
-  string seq = Sequence::reverseComplement(mSeq);
-  string qual;
-  qual.assign(mQuality->rbegin(), mQuality->rend());
-  return new Read(mName->c_str(), seq.c_str(), "+", qual.c_str());
+std::unique_ptr<Read> Read::reverseComplement() const {
+  std::string seq = Sequence::reverseComplement(mSeq);
+  std::string qual(mQuality.rbegin(), mQuality.rend());
+  return std::make_unique<Read>(mName, std::move(seq), "+", std::move(qual));
 }
 
 void Read::resize(int len) {
-  if (len > length() || len < 0)
-    return;
-  mSeq->resize(len);
-  mQuality->resize(len);
+  if (len >= 0 && len <= static_cast<int>(mSeq.length())) {
+    mSeq.resize(len);
+    mQuality.resize(len);
+  }
 }
 
 void Read::trimFront(int len) {
-  len = min(length() - 1, len);
-  mSeq->erase(0, len);
-  mQuality->erase(0, len);
+  len = std::min(static_cast<int>(mSeq.length()), len);
+  mSeq.erase(0, len);
+  mQuality.erase(0, len);
 }
 
-string Read::lastIndex() {
-  int len = mName->length();
+std::string_view Read::lastIndex() const {
+  size_t len = mName.length();
   if (len < 5)
     return "";
-  for (int i = len - 3; i >= 0; i--) {
-    if ((*mName)[i] == ':' || (*mName)[i] == '+') {
-      return mName->substr(i + 1, len - i);
+  for (size_t i = len - 3; i > 0; i--) {
+    if (mName[i] == ':' || mName[i] == '+') {
+      return std::string_view(mName).substr(i + 1);
     }
   }
   return "";
 }
 
-string Read::firstIndex() {
-  int len = mName->length();
-  int end = len;
+std::string_view Read::firstIndex() const {
+  size_t len = mName.length();
   if (len < 5)
     return "";
-  for (int i = len - 3; i >= 0; i--) {
-    if ((*mName)[i] == '+')
-      end = i - 1;
-    if ((*mName)[i] == ':') {
-      return mName->substr(i + 1, end - i);
+  size_t end = len;
+  for (size_t i = len - 3; i > 0; i--) {
+    if (mName[i] == '+')
+      end = i;
+    if (mName[i] == ':') {
+      return std::string_view(mName).substr(i + 1, end - (i + 1));
     }
   }
   return "";
 }
 
-int Read::lowQualCount(int qual) {
+int Read::lowQualCount(int qual) const {
   int count = 0;
-  for (int q = 0; q < mQuality->size(); q++) {
-    if ((*mQuality)[q] < qual + 33)
-      count++;
+  const int threshold = qual + 33;
+  const char *q = mQuality.data();
+  const size_t n = mQuality.size();
+  for (size_t i = 0; i < n; ++i) {
+    count += (static_cast<unsigned char>(q[i]) <
+              static_cast<unsigned char>(threshold));
   }
   return count;
 }
 
-int Read::length() { return mSeq->length(); }
-
-string Read::toString() {
-  return *mName + "\n" + *mSeq + "\n" + *mStrand + "\n" + *mQuality + "\n";
+std::string Read::toString() const {
+  std::string out;
+  out.reserve(mName.size() + mSeq.size() + mStrand.size() + mQuality.size() +
+              4);
+  out.append(mName).push_back('\n');
+  out.append(mSeq).push_back('\n');
+  out.append(mStrand).push_back('\n');
+  out.append(mQuality).push_back('\n');
+  return out;
 }
 
-void Read::appendToString(string *target) {
-  size_t size = mName->length() + mSeq->length() + mStrand->length() +
-                mQuality->length() + 4;
-  char *str = new char[size + 1];
-  size_t total = 0;
-  memcpy(str + total, mName->data(), mName->length());
-  total += mName->length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mSeq->data(), mSeq->length());
-  total += mSeq->length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mStrand->data(), mStrand->length());
-  total += mStrand->length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mQuality->data(), mQuality->length());
-  total += mQuality->length();
-  str[total] = '\n';
-  total++;
-  str[total] = '\0';
+void Read::appendToString(std::string &target) const {
+  const size_t total =
+      mName.size() + mSeq.size() + mStrand.size() + mQuality.size() + 4;
+  target.reserve(target.size() + total);
 
-  target->append(str, size);
-  delete[] str;
+  target.append(mName).push_back('\n');
+  target.append(mSeq).push_back('\n');
+  target.append(mStrand).push_back('\n');
+  target.append(mQuality).push_back('\n');
 }
 
-void Read::appendToStringWithTag(string *target, std::string_view tag) {
-  size_t size = mName->length() + 1 + tag.length() + mSeq->length() +
-                mStrand->length() + mQuality->length() + 4;
-  char *str = new char[size + 1];
-  size_t total = 0;
-  memcpy(str + total, mName->data(), mName->length());
-  total += mName->length();
-  str[total] = ' ';
-  total++;
-  memcpy(str + total, tag.data(), tag.length());
-  total += tag.length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mSeq->data(), mSeq->length());
-  total += mSeq->length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mStrand->data(), mStrand->length());
-  total += mStrand->length();
-  str[total] = '\n';
-  total++;
-  memcpy(str + total, mQuality->data(), mQuality->length());
-  total += mQuality->length();
-  str[total] = '\n';
-  total++;
-  str[total] = '\0';
+void Read::appendToStringWithTag(std::string &target,
+                                 std::string_view tag) const {
+  const size_t total = mName.size() + 1 + tag.size() + 1 + mSeq.size() + 1 +
+                       mStrand.size() + 1 + mQuality.size() + 1;
+  target.reserve(target.size() + total);
 
-  target->append(str, size);
-  delete[] str;
+  target.append(mName);
+  target.push_back(' ');
+  target.append(tag.data(), tag.size());
+  target.push_back('\n');
+  target.append(mSeq).push_back('\n');
+  target.append(mStrand).push_back('\n');
+  target.append(mQuality).push_back('\n');
 }
 
-string Read::toStringWithTag(string tag) {
-  return *mName + " " + tag + "\n" + *mSeq + "\n" + *mStrand + "\n" +
-         *mQuality + "\n";
+std::string Read::toStringWithTag(std::string_view tag) const {
+  std::string out;
+  out.reserve(mName.size() + 1 + tag.size() + 1 + mSeq.size() + 1 +
+              mStrand.size() + 1 + mQuality.size() + 1);
+
+  out.append(mName);
+  out.push_back(' ');
+  out.append(tag.data(), tag.size());
+  out.push_back('\n');
+  out.append(mSeq).push_back('\n');
+  out.append(mStrand).push_back('\n');
+  out.append(mQuality).push_back('\n');
+  return out;
 }
 
 bool Read::fixMGI() {
-  int len = mName->length();
-  if ((*mName)[len - 1] == '1' || (*mName)[len - 1] == '2') {
-    if ((*mName)[len - 2] == '/') {
-      string *newName = new string(mName->substr(0, len - 2) + " " +
-                                   mName->substr(len - 2, 2));
-      delete mName;
-      mName = newName;
-      return true;
-    }
+  if (mName.size() < 3)
+    return false;
+  const size_t len = mName.size();
+  if ((mName[len - 1] == '1' || mName[len - 1] == '2') &&
+      mName[len - 2] == '/') {
+    std::string suffix = mName.substr(len - 2);
+    mName.resize(len - 2);
+    mName.reserve(mName.size() + 1 + suffix.size());
+    mName.push_back(' ');
+    mName.append(suffix);
+    return true;
   }
   return false;
 }
 
 bool Read::test() {
-  Read r(
-      new string(
-          "@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA"),
-      new string("CTCTTGGACTCTAACACTGTTTTTTCTTATGAAAACACAGGAGTGATGACTAGTTGAGTGC"
-                 "ATTCTTATGAGACTCATAGTCATTCTATGATGTAGTTTTCCTTAGGAGGACATTTTTTACA"
-                 "TGAAATTATTAACCTAAATAGAGTTGATC"),
-      new string("+"),
-      new string("AAAAA6EEEEEEEEEEEEEEEEE#EEEEEEEEEEEEEEEEE/"
-                 "EEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<"
-                 "EEEEAEEEEEEEEEEEEEEEAEEE/EEEEEEEEEEAAEAEAAEEEAEEAA"));
-  string idx = r.lastIndex();
+  Read r("@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA",
+         "CTCTTGGACTCTAACACTGTTTTTTCTTATGAAAACACAGGAGTGATGACTAGTTGAGTGC"
+         "ATTCTTATGAGACTCATAGTCATTCTATGATGTAGTTTTCCTTAGGAGGACATTTTTTACA"
+         "TGAAATTATTAACCTAAATAGAGTTGATC",
+         "+",
+         "AAAAA6EEEEEEEEEEEEEEEEE#EEEEEEEEEEEEEEEEE/"
+         "EEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE<"
+         "EEEEAEEEEEEEEEEEEEEEAEEE/EEEEEEEEEEAAEAEAAEEEAEEAA");
+  std::string_view idx = r.lastIndex();
   return idx == "GGTCCCGA";
 }
 
-ReadPair::ReadPair(Read *left, Read *right) {
-  mLeft = left;
-  mRight = right;
-}
+ReadPair::ReadPair(std::unique_ptr<Read> left,
+                   std::unique_ptr<Read> right) noexcept
+    : mLeft(std::move(left)), mRight(std::move(right)) {}
 
-ReadPair::~ReadPair() {
-  if (mLeft) {
-    delete mLeft;
-    mLeft = NULL;
-  }
-  if (mRight) {
-    delete mRight;
-    mRight = NULL;
-  }
-}
+std::unique_ptr<Read> ReadPair::fastMerge() {
+  const int lLen = mLeft->length();
+  const int rLen = mRight->length();
+  const char *lSeq = mLeft->mSeq.data();
+  const char *lQual = mLeft->mQuality.data();
 
-Read *ReadPair::fastMerge() {
-  Read *rcRight = mRight->reverseComplement();
-  int len1 = mLeft->length();
-  int len2 = rcRight->length();
-  // use the pointer directly for speed
-  const char *str1 = mLeft->mSeq->c_str();
-  const char *str2 = rcRight->mSeq->c_str();
-  const char *qual1 = mLeft->mQuality->c_str();
-  const char *qual2 = rcRight->mQuality->c_str();
+  std::string rcSeq = Sequence::reverseComplement(mRight->mSeq);
+  std::string rcQual;
+  rcQual.resize(mRight->mQuality.size());
+  std::reverse_copy(mRight->mQuality.begin(), mRight->mQuality.end(),
+                    rcQual.begin());
 
   // we require at least 30 bp overlapping to merge a pair
   const int MIN_OVERLAP = 30;
   bool overlapped = false;
+  // overlap length
   int olen = MIN_OVERLAP;
+  // difference count
   int diff = 0;
   // the diff count for 1 high qual + 1 low qual
   int lowQualDiff = 0;
+  const int max_olen = std::min(lLen, static_cast<int>(rcSeq.size()));
 
-  while (olen <= min(len1, len2)) {
+  while (olen <= max_olen) {
     diff = 0;
     lowQualDiff = 0;
     bool ok = true;
-    int offset = len1 - olen;
+    int offset = lLen - olen;
+
     for (int i = 0; i < olen; i++) {
-      if (str1[offset + i] != str2[i]) {
-        diff++;
+      if (lSeq[offset + i] != rcSeq[i]) {
+        ++diff;
+        const char q1 = lQual[offset + i];
+        const char q2 = rcQual[i];
         // one is >= Q30 and the other is <= Q15
-        if ((qual1[offset + i] >= '?' && qual2[i] <= '0') ||
-            (qual1[offset + i] <= '0' && qual2[i] >= '?')) {
+        if ((q1 >= '?' && q2 <= '0') || (q1 <= '0' && q2 >= '?')) {
           lowQualDiff++;
         }
         // we disallow high quality diff, and only allow up to 3 low qual diff
@@ -269,66 +252,77 @@ Read *ReadPair::fastMerge() {
     olen++;
   }
 
-  if (overlapped) {
-    int offset = len1 - olen;
-    stringstream ss;
-    ss << mLeft->mName << " merged offset:" << offset << " overlap:" << olen
-       << " diff:" << diff;
-    string mergedName = ss.str();
-    string mergedSeq = mLeft->mSeq->substr(0, offset) + *(rcRight->mSeq);
-    string mergedQual =
-        mLeft->mQuality->substr(0, offset) + *(rcRight->mQuality);
-    // quality adjuction and correction for low qual diff
-    for (int i = 0; i < olen; i++) {
-      if (str1[offset + i] != str2[i]) {
-        if (qual1[offset + i] >= '?' && qual2[i] <= '0') {
-          mergedSeq[offset + i] = str1[offset + i];
-          mergedQual[offset + i] = qual1[offset + i];
-        } else {
-          mergedSeq[offset + i] = str2[i];
-          mergedQual[offset + i] = qual2[i];
-        }
-      } else {
-        // add the quality of the pair to make a high qual
-        mergedQual[offset + i] = qual1[offset + i] + qual2[i] - 33;
-      }
-    }
-    delete rcRight;
-    return new Read(new string(mergedName), new string(mergedSeq),
-                    new string("+"), new string(mergedQual));
-  }
+  if (!overlapped)
+    return nullptr;
 
-  delete rcRight;
-  return NULL;
+  const int offset = lLen - olen;
+  std::string mergedName;
+  mergedName.reserve(mLeft->mName.size() + 64);
+  mergedName.append(mLeft->mName);
+  mergedName.append(" merged offset:");
+  append_int(mergedName, offset);
+  mergedName.append(" overlap:");
+  append_int(mergedName, olen);
+  mergedName.append(" diff:");
+  append_int(mergedName, diff);
+  std::string mergedSeq;
+  std::string mergedQual;
+  mergedSeq.resize(static_cast<size_t>(offset + rLen));
+  mergedQual.resize(static_cast<size_t>(offset + rLen));
+  if (offset > 0) {
+    std::memcpy(mergedSeq.data(), lSeq, static_cast<size_t>(offset));
+    std::memcpy(mergedQual.data(), lQual, static_cast<size_t>(offset));
+  }
+  std::memcpy(mergedSeq.data() + offset, rcSeq.data(),
+              static_cast<size_t>(rLen));
+  std::memcpy(mergedQual.data() + offset, rcQual.data(),
+              static_cast<size_t>(rLen));
+  // quality adjuction and correction for low qual diff
+  for (int i = 0; i < olen; i++) {
+    int idx = offset + i;
+    if (lSeq[idx] != rcSeq[i]) {
+      if (lQual[idx] >= '?' && rcQual[i] <= '0') {
+        mergedSeq[idx] = lSeq[idx];
+        mergedQual[idx] = lQual[idx];
+      } else {
+        mergedSeq[idx] = rcSeq[i];
+        mergedQual[idx] = rcQual[i];
+      }
+    } else {
+      // add the quality of the pair to make a high qual
+      mergedQual[idx] = lQual[idx] + rcQual[i] - 33;
+    }
+  }
+  return std::make_unique<Read>(std::move(mergedName), std::move(mergedSeq),
+                                "+", std::move(mergedQual));
 }
 
 bool ReadPair::test() {
-  Read *left = new Read(
-      new string(
-          "@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA"),
-      new string("TTTTTTCTCTTGGACTCTAACACTGTTTTTTCTTATGAAAACACAGGAGTGATGACTAGTT"
-                 "GAGTGCATTCTTATGAGACTCATAGTCATTCTATGATGTAG"),
-      new string("+"),
-      new string("AAAAA6EEEEEEEEEEEEEEEEE#"
-                 "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEE"
-                 "EEEEEEEEEEEEEEEEE"));
-  Read *right = new Read(
-      new string(
-          "@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA"),
-      new string("AAAAAACTACACCATAGAATGACTATGAGTCTCATAAGAATGCACTCAACTAGTCATCACT"
-                 "CCTGTGTTTTCATAAGAAAAAACAGTGTTAGAGTCCAAGAG"),
-      new string("+"),
-      new string("AAAAA6EEEEE/"
-                 "EEEEEEEEEEE#"
-                 "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEE"
-                 "EEEEEEEEEEEEEEEEE"));
+  auto left = std::make_unique<Read>(
+      "@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA",
+      "TTTTTTCTCTTGGACTCTAACACTGTTTTTTCTTATGAAAACACAGGAGTGATGACTAGTT"
+      "GAGTGCATTCTTATGAGACTCATAGTCATTCTATGATGTAG",
+      "+",
+      "AAAAA6EEEEEEEEEEEEEEEEE#"
+      "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEE"
+      "EEEEEEEEEEEEEEEEE");
+  auto right = std::make_unique<Read>(
+      "@NS500713:64:HFKJJBGXY:1:11101:20469:1097 1:N:0:TATAGCCT+GGTCCCGA",
+      "AAAAAACTACACCATAGAATGACTATGAGTCTCATAAGAATGCACTCAACTAGTCATCACT"
+      "CCTGTGTTTTCATAAGAAAAAACAGTGTTAGAGTCCAAGAG",
+      "+",
+      "AAAAA6EEEEE/"
+      "EEEEEEEEEEE#"
+      "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEAEEEAEEEEEEEEEEEEEEEEEEEEEE"
+      "EEEEEEEEEEEEEEEEE");
 
-  ReadPair pair(left, right);
-  Read *merged = pair.fastMerge();
-  if (merged == NULL)
+  ReadPair pair(std::move(left), std::move(right));
+  std::unique_ptr<Read> merged = pair.fastMerge();
+
+  if (merged == nullptr)
     return false;
 
-  if (*(merged->mSeq) !=
+  if (merged->mSeq !=
       "TTTTTTCTCTTGGACTCTAACACTGTTTTTTCTTATGAAAACACAGGAGTGATGACTAGTTGAGTGCATTCT"
       "TATGAGACTCATAGTCATTCTATGATGTAGTTTTTT")
     return false;

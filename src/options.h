@@ -1,4 +1,5 @@
-#pragma once
+#ifndef OPTIONS_H
+#define OPTIONS_H
 
 #include <cstdio>
 #include <cstdlib>
@@ -280,3 +281,5 @@ public:
   // the buffer size for writer
   size_t writerBufferSize{}; // Default 1MB
 };
+
+#endif

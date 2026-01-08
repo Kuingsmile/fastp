@@ -25,10 +25,10 @@ int BaseCorrector::correctByOverlapAnalysis(Read *r1, Read *r2,
   int start1 = max(0, ov.offset);
   int start2 = r2->length() - max(0, -ov.offset) - 1;
 
-  const char *seq1 = r1->mSeq->c_str();
-  const char *seq2 = r2->mSeq->c_str();
-  const char *qual1 = r1->mQuality->c_str();
-  const char *qual2 = r2->mQuality->c_str();
+  const char *seq1 = r1->mSeq.c_str();
+  const char *seq2 = r2->mSeq.c_str();
+  const char *qual1 = r1->mQuality.c_str();
+  const char *qual2 = r2->mQuality.c_str();
 
   const char GOOD_QUAL = num2qual(30);
   const char BAD_QUAL = num2qual(14);
@@ -44,8 +44,8 @@ int BaseCorrector::correctByOverlapAnalysis(Read *r1, Read *r2,
     if (seq1[p1] != complement(seq2[p2])) {
       if (qual1[p1] >= GOOD_QUAL && qual2[p2] <= BAD_QUAL) {
         // use R1
-        (*r2->mSeq)[p2] = complement(seq1[p1]);
-        (*r2->mQuality)[p2] = qual1[p1];
+        r2->mSeq[p2] = complement(seq1[p1]);
+        r2->mQuality[p2] = qual1[p1];
         corrected++;
         r2Corrected = true;
         if (fr) {
@@ -53,8 +53,8 @@ int BaseCorrector::correctByOverlapAnalysis(Read *r1, Read *r2,
         }
       } else if (qual2[p2] >= GOOD_QUAL && qual1[p1] <= BAD_QUAL) {
         // use R2
-        (*r1->mSeq)[p1] = complement(seq2[p2]);
-        (*r1->mQuality)[p1] = qual2[p2];
+        r1->mSeq[p1] = complement(seq2[p2]);
+        r1->mQuality[p1] = qual2[p2];
         corrected++;
         r1Corrected = true;
         if (fr) {
@@ -88,28 +88,20 @@ int BaseCorrector::correctByOverlapAnalysis(Read *r1, Read *r2,
 }
 
 bool BaseCorrector::test() {
-  Read r1(
-      new string("@name"),
-      new string("TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCACGGGG"),
-      new string("+"),
-      new string("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/EEEEE"));
-  Read r2(
-      new string("@name"),
-      new string("AAAAAAAAAACCCCGGGGAAAATTTTAAAATTGGGGGGGGGGTGGGGGGGGGGGGG"),
-      new string("+"),
-      new string("EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/EEEEEEEEEEEEE"));
+  Read r1("@name", "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCACGGGG",
+          "+", "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/EEEEE");
+  Read r2("@name", "AAAAAAAAAACCCCGGGGAAAATTTTAAAATTGGGGGGGGGGTGGGGGGGGGGGGG",
+          "+", "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE/EEEEEEEEEEEEE");
 
   correctByOverlapAnalysis(&r1, &r2, NULL, 5, 30, 0.2);
 
-  if (*r1.mSeq != "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCCCGGGG")
+  if (r1.mSeq != "TTTTAACCCCCCCCCCCCCCCCCCCCCCCCCCCCAATTTTAAAATTTTCCCCGGGG")
     return false;
-  if (*r2.mSeq != "AAAAAAAAAACCCCGGGGAAAATTTTAAAATTGGGGGGGGGGGGGGGGGGGGGGGG")
+  if (r2.mSeq != "AAAAAAAAAACCCCGGGGAAAATTTTAAAATTGGGGGGGGGGGGGGGGGGGGGGGG")
     return false;
-  if (*r1.mQuality !=
-      "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+  if (r1.mQuality != "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
     return false;
-  if (*r2.mQuality !=
-      "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+  if (r2.mQuality != "EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
     return false;
 
   return true;

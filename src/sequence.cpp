@@ -1,90 +1,68 @@
 #include "sequence.h"
+#include <array>
+#include <iostream>
+#include <string_view>
 
-Sequence::Sequence() {}
+Sequence::Sequence(std::string seq) : mStr(std::move(seq)) {}
 
-Sequence::Sequence(string *seq) { mStr = seq; }
+void Sequence::print() const { std::cerr << mStr; }
 
-Sequence::~Sequence() {
-  if (mStr)
-    delete mStr;
-}
-
-void Sequence::print() { std::cerr << *mStr; }
-
-int Sequence::length() { return mStr->length(); }
-
-string Sequence::reverseComplement(string *origin) {
-  string str(origin->length(), 0);
-  int len = origin->length();
-  for (int c = 0; c < origin->length(); c++) {
-    char base = (*origin)[c];
-    switch (base) {
-    case 'A':
-    case 'a':
-      str[len - c - 1] = 'T';
-      break;
-    case 'T':
-    case 't':
-      str[len - c - 1] = 'A';
-      break;
-    case 'C':
-    case 'c':
-      str[len - c - 1] = 'G';
-      break;
-    case 'G':
-    case 'g':
-      str[len - c - 1] = 'C';
-      break;
-    default:
-      str[len - c - 1] = 'N';
-    }
+alignas(64) static constexpr auto complementTable = []() {
+  std::array<char, 256> t = {};
+  for (std::size_t i = 0; i < 256; ++i) {
+    t[i] = 'N';
   }
-  return str;
-}
 
-Sequence Sequence::reverseComplement() {
-  string *str = new string(mStr->length(), 0);
-  int len = mStr->length();
-  for (int c = 0; c < mStr->length(); c++) {
-    char base = (*mStr)[c];
-    switch (base) {
-    case 'A':
-    case 'a':
-      (*str)[len - c - 1] = 'T';
-      break;
-    case 'T':
-    case 't':
-      (*str)[len - c - 1] = 'A';
-      break;
-    case 'C':
-    case 'c':
-      (*str)[len - c - 1] = 'G';
-      break;
-    case 'G':
-    case 'g':
-      (*str)[len - c - 1] = 'C';
-      break;
-    default:
-      (*str)[len - c - 1] = 'N';
-    }
+  t['A'] = 'T';
+  t['a'] = 'T';
+  t['T'] = 'A';
+  t['t'] = 'A';
+  t['C'] = 'G';
+  t['c'] = 'G';
+  t['G'] = 'C';
+  t['g'] = 'C';
+  t['N'] = 'N';
+  t['n'] = 'N';
+
+  return t;
+}();
+
+std::string Sequence::reverseComplement(std::string_view origin) {
+  std::size_t len = origin.size();
+  if (len == 0)
+    return "";
+
+  std::string result;
+  result.resize(len);
+  const char *src = origin.data();
+  char *dst = &result[len - 1];
+  for (std::size_t i = 0; i < len; ++i) {
+    *dst-- = complementTable[static_cast<unsigned char>(src[i])];
   }
-  return Sequence(str);
+  return result;
 }
 
-Sequence Sequence::operator~() { return reverseComplement(); }
+Sequence Sequence::reverseComplement() const {
+  return Sequence(reverseComplement(mStr));
+}
 
 bool Sequence::test() {
-  Sequence s(new string("AAAATTTTCCCCGGGG"));
-  Sequence rc = ~s;
-  if (*(s.mStr) != "AAAATTTTCCCCGGGG") {
-    cerr << "Failed in reverseComplement() expect AAAATTTTCCCCGGGG, but get "
-         << *(s.mStr);
+  std::string test_seq = "AAAATTTTCCCCGGGG";
+  std::string expected = "CCCCGGGGAAAATTTT";
+  Sequence s(test_seq);
+  Sequence rc = ~s; // 调用 operator~，内部指向 reverseComplement()
+
+  if (s.mStr != test_seq) {
+    std::cerr << "Error: Original sequence modified!" << std::endl;
     return false;
   }
-  if (*(rc.mStr) != "CCCCGGGGAAAATTTT") {
-    cerr << "Failed in reverseComplement() expect CCCCGGGGAAAATTTT, but get "
-         << *(rc.mStr);
+
+  if (rc.mStr != expected) {
+    std::cerr << "Failed in reverseComplement(). "
+              << "Expected: " << expected << " Got: " << rc.mStr << std::endl;
     return false;
   }
+
+  std::cout << "All tests passed!" << std::endl;
   return true;
 }
