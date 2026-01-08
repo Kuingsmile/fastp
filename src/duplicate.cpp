@@ -1,4 +1,3 @@
-// duplicate.cpp
 #include "duplicate.h"
 #include "util.h"
 
@@ -80,14 +79,14 @@ Duplicate::Duplicate(Options *opt) : mOptions(opt) {
   const size_t totalWords =
       static_cast<size_t>(mWordsPerBuf) * static_cast<size_t>(mBufNum);
   try {
-    mDupBufWords.resize(totalWords);
+    mDupBufWords = std::make_unique<std::atomic<uint64_t>[]>(totalWords);
   } catch (...) {
     error_exit("Out of memory, failed to allocate bloom buffer for duplication "
                "analysis, "
                "please reduce dup_accuracy_level and try again.");
   }
-  for (auto &w : mDupBufWords)
-    w.store(0, std::memory_order_relaxed);
+  for (size_t i = 0; i < totalWords; ++i)
+    mDupBufWords[i].store(0, std::memory_order_relaxed);
 
   const uint32 needed = static_cast<uint32>(mBufNum) * PRIME_ARRAY_LEN;
   mPrimeTableSize = nextPow2(needed);

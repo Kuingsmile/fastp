@@ -34,7 +34,7 @@ private:
   uint32 mBufNum{0};      // number of slices/hashes
 
   // Bloom storage: mBufNum slices, each slice is mWordsPerBuf 64-bit words
-  std::vector<std::atomic<uint64>> mDupBufWords;
+  std::unique_ptr<std::atomic<uint64>[]> mDupBufWords;
 
   // Prime table for hashing in seq2intvector
   uint32 mPrimeTableSize = 0; // power-of-two
